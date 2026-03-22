@@ -4,19 +4,9 @@
 
 ## 效果预览
 
-```
-┌─────────────────────────────────────┐
-│  微信 ClawBot                        │
-│  ─────────────────                   │
-│  你: 帮我写一个快速排序               │
-│                                     │
-│  Claude: 以下是快速排序实现...        │
-│                                     │
-│  你: 解释一下这个算法                 │
-│                                     │
-│  Claude: 快速排序是一种分治算法...    │
-└─────────────────────────────────────┘
-```
+![微信对话效果](wechat_1.jpg)
+
+![微信对话效果](wechat_2.jpg)
 
 ## 工作原理
 
@@ -28,16 +18,16 @@
                                                               │
                                                               ▼
                                                   ┌─────────────────────┐
-                                                  │  Claude Code Session │
+                                                  │  OpenCode SDK       │
                                                   │                     │
-                                                  │  <channel>          │
-                                                  │  wechat_reply tool   │
+                                                  │  Session.prompt()   │
+                                                  │  直接调用 AI 模型    │
                                                   └─────────────────────┘
 ```
 
 1. **接收消息** — 通过 `ilink/bot/getupdates` 长轮询获取微信用户消息
-2. **转发消息** — 通过 MCP Channel Protocol 将消息推送到 Claude Code 会话
-3. **发送回复** — Claude 调用 `wechat_reply` 工具，插件通过 `ilink/bot/sendmessage` 发回微信
+2. **转发消息** — 通过 OpenCode SDK 的 `Session.prompt()` 直接调用 AI 模型
+3. **发送回复** — AI 响应通过 `ilink/bot/sendmessage` 发回微信
 
 ## 前置要求
 
@@ -91,9 +81,8 @@ OpenCodeWeChat/
 │   └── context-token.ts       # Context token 缓存
 ├── login/
 │   └── qr.ts                  # QR 码登录流程
-├── mcp/
-│   ├── server.ts              # MCP Server 创建
-│   └── tools.ts               # wechat_reply 工具定义
+├── opencode/
+│   └── client.ts              # OpenCode SDK 封装
 ├── polling/
 │   └── loop.ts                # 长轮询消息循环
 ├── storage/
@@ -106,7 +95,6 @@ OpenCodeWeChat/
 ├── setup.ts                   # 独立扫码登录工具
 ├── tsconfig.json
 ├── package.json
-├── .mcp.json                  # Claude Code MCP 配置
 └── README.md
 ```
 
@@ -133,16 +121,17 @@ ilink 是微信官方的 ClawBot 通信协议，基于 HTTPS REST API。主要�
 
 微信消息通过 `get_updates_buf` 实现幂等同步。每次 getupdates 返回的 buffer 会持久化到本地，重启后可从断点继续，不会漏消息也不会重复推送。
 
-### MCP Channel Protocol
+### OpenCode SDK
 
-插件通过 MCP 的 experimental channel 协议扩展与 Claude Code 通信：
+插件直接使用 `@opencode-ai/sdk` 与 OpenCode 通信：
 
-- **消息推送**：`notifications/claude/channel` — 将微信消息推入会话
-- **回复工具**：`wechat_reply` — Claude 调用此工具发回微信
+- **会话管理**：`client.session.create()` — 创建新会话
+- **发送 prompt**：`session.prompt()` — 发送消息并获取 AI 响应
+- **认证**：`OPENCODE_SERVER_PASSWORD` 环境变量 + HTTP Basic Auth
 
 ### Context Token
 
-微信消息需要 `context_token` 才能回复。插件在收到消息时自动缓存对应用户的 token，调用 `wechat_reply` 时取出使用。
+微信消息需要 `context_token` 才能回复。插件在收到消息时自动缓存对应用户的 token，发送消息时取出使用。
 
 ## 常用命令
 
@@ -161,10 +150,10 @@ bun index.ts    # 启动通道（已有凭据时直接启动）
 
 ## 注意事项
 
-- 当前为研究预览阶段，需要 Claude Code 使用 `--dangerously-load-development-channels` 标志
+- 使用 `OPENCODE_SERVER_PASSWORD` 环境变量进行认证（OpenCode 桌面应用已设置）
 - 每次启动只能连接一个 ClawBot 实例
 - 微信 ClawBot 目前仅支持 iOS 最新版
-- Claude Code 会话关闭后通道也会断开
+- OpenCode 会话关闭后通道也会断开
 
 ## License
 

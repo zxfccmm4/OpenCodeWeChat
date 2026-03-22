@@ -1,6 +1,5 @@
-import { getUpdates } from "../api/ilink";
+import { getUpdates, sendTextMessage } from "../api/ilink";
 import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
-import { cacheContextToken } from "../core/context-token";
 import { parseMessage } from "../core/message";
 import {
   CHANNEL_NAME,
@@ -9,9 +8,10 @@ import {
   BACKOFF_DELAY_MS,
   RETRY_DELAY_MS,
   MAX_MESSAGE_TEXT_LEN,
-} from "../config.js";
-import type { AccountData, ParsedMessage } from "../types/wechat";
-import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+} from "../config";
+import type { AccountData } from "../types/wechat";
+import type { OpencodeSession } from "../opencode/client";
+import { sendPrompt } from "../opencode/client";
 
 function log(msg: string) {
   process.stderr.write(`[polling] ${msg}\n`);
@@ -23,7 +23,7 @@ function logError(msg: string) {
 
 export async function startPolling(
   account: AccountData,
-  mcpServer: Server,
+  opencode: OpencodeSession,
 ): Promise<never> {
   const { baseUrl, token } = account;
   let getUpdatesBuf = loadSyncBuffer();
@@ -71,24 +71,30 @@ export async function startPolling(
         const parsed = parseMessage(msg);
         if (!parsed) continue;
 
-        if (parsed.contextToken) {
-          cacheContextToken(parsed.senderId, parsed.contextToken);
-        }
-
         log(
           `收到消息: from=${parsed.senderId} text=${parsed.text.slice(0, MAX_MESSAGE_TEXT_LEN)}...`,
         );
 
-        await mcpServer.notification({
-          method: "notifications/claude/channel",
-          params: {
-            content: parsed.text,
-            meta: {
-              sender: parsed.senderId.split("@")[0] || parsed.senderId,
-              sender_id: parsed.senderId,
-            },
-          },
-        });
+        try {
+          log(`发送至 OpenCode...`);
+          const response = await sendPrompt(opencode, parsed.text);
+          log(`OpenCode 响应: ${response.slice(0, MAX_MESSAGE_TEXT_LEN)}...`);
+
+          if (parsed.contextToken && response) {
+            await sendTextMessage(
+              baseUrl,
+              token,
+              parsed.senderId,
+              response,
+              parsed.contextToken,
+              `opencode-wechat:${Date.now()}`,
+              CHANNEL_VERSION,
+            );
+            log("已发送回复");
+          }
+        } catch (err) {
+          logError(`OpenCode 处理失败: ${String(err)}`);
+        }
       }
     } catch (err) {
       consecutiveFailures++;

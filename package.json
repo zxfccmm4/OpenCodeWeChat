@@ -19,5 +19,8 @@
   "engines": {
     "bun": ">=1.0.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/sdk": "^1.2.27"
+  }
 }

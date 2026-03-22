@@ -1,8 +1,9 @@
 import { loadCredentials } from "./storage/credentials";
 import { doQRLogin } from "./login/qr";
 import { startPolling } from "./polling/loop";
-import { createMcpServer } from "./mcp/server";
+import { startOpencode } from "./opencode/client";
 import { DEFAULT_BASE_URL } from "./config";
+import type { OpencodeSession } from "./opencode/client";
 
 function log(msg: string) {
   process.stderr.write(`[opencode-wechat] ${msg}\n`);
@@ -13,6 +14,7 @@ function logError(msg: string) {
 }
 
 let activeAccount: ReturnType<typeof loadCredentials>;
+let opencodeSession: OpencodeSession | null = null;
 
 async function main() {
   let account = loadCredentials();
@@ -30,10 +32,11 @@ async function main() {
 
   activeAccount = account;
 
-  const mcpServer = await createMcpServer(() => activeAccount);
-  log("MCP 连接就绪");
+  log("启动 OpenCode 会话...");
+  opencodeSession = await startOpencode();
+  log("OpenCode 就绪");
 
-  await startPolling(account, mcpServer);
+  await startPolling(account, opencodeSession);
 }
 
 main().catch((err) => {
