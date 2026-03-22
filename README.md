@@ -147,9 +147,8 @@ ilink 是微信官方的 ClawBot 通信协议，基于 HTTPS REST API。主要�
 ## 常用命令
 
 ```bash
-bun setup.ts           # 扫码登录（或重新登录）
-bun src/index.ts       # 启动通道
-bun src/index.ts       # 已有凭据时直接启动
+bun setup.ts    # 扫码登录（或重新登录）
+bun index.ts    # 启动通道（已有凭据时直接启动）
 ```
 
 ## 配置
