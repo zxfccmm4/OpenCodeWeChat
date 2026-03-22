@@ -1,0 +1,23 @@
+{
+  "name": "opencode-wechat",
+  "version": "0.2.0",
+  "description": "Bridge WeChat messages into Claude Code sessions via the official ClawBot ilink API",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup": "bun setup.ts",
+    "start": "bun src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@types/bun": "latest",
+    "@types/qrcode-terminal": "^0.12.2",
+    "qrcode-terminal": "^0.12.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "license": "MIT"
+}
