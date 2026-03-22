@@ -1,8 +1,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CHANNEL_NAME, CHANNEL_VERSION } from "../config.js";
-import { createToolHandlers } from "./tools.js";
-import type { AccountData } from "../types/wechat.js";
+import { createToolHandlers } from "./tools";
+import type { AccountData } from "../types/wechat";
 
 export async function createMcpServer(
   getAccount: () => AccountData | null,

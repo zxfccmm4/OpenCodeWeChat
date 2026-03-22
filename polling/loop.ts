@@ -1,7 +1,7 @@
-import { getUpdates } from "../api/ilink.js";
-import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer.js";
-import { cacheContextToken } from "../core/context-token.js";
-import { parseMessage } from "../core/message.js";
+import { getUpdates } from "../api/ilink";
+import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
+import { cacheContextToken } from "../core/context-token";
+import { parseMessage } from "../core/message";
 import {
   CHANNEL_NAME,
   CHANNEL_VERSION,
@@ -10,7 +10,7 @@ import {
   RETRY_DELAY_MS,
   MAX_MESSAGE_TEXT_LEN,
 } from "../config.js";
-import type { AccountData, ParsedMessage } from "../types/wechat.js";
+import type { AccountData, ParsedMessage } from "../types/wechat";
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
 
 function log(msg: string) {

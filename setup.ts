@@ -1,8 +1,7 @@
 #!/usr/bin/env bun
-import { doQRLogin } from "./src/login/qr.js";
-import { loadCredentials } from "./src/storage/credentials.js";
-import { credentialsFile, credentialsDir } from "./src/storage/credentials.js";
-import { DEFAULT_BASE_URL } from "./src/config.js";
+import { doQRLogin } from "./login/qr";
+import { loadCredentials, credentialsFile, credentialsDir } from "./storage/credentials";
+import { DEFAULT_BASE_URL } from "./config";
 import fs from "node:fs";
 
 async function main() {
@@ -41,7 +40,7 @@ async function main() {
   console.log(`凭据保存至: ${credentialsFile()}`);
   console.log();
   console.log("现在可以启动 Claude Code 通道：");
-  console.log("  bun src/index.ts");
+  console.log("  bun index.ts");
 }
 
 main().catch((err) => {

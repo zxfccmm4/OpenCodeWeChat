@@ -1,7 +1,7 @@
-import { fetchQRCode, pollQRStatus } from "../api/ilink.js";
-import { saveCredentials } from "../storage/credentials.js";
-import { DEFAULT_BASE_URL, QR_LOGIN_DEADLINE_MS } from "../config.js";
-import type { AccountData, QRStatusResponse } from "../types/wechat.js";
+import { fetchQRCode, pollQRStatus } from "../api/ilink";
+import { saveCredentials } from "../storage/credentials";
+import { DEFAULT_BASE_URL, QR_LOGIN_DEADLINE_MS } from "../config";
+import type { AccountData, QRStatusResponse } from "../types/wechat";
 
 function log(msg: string) {
   process.stderr.write(`[qr-login] ${msg}\n`);

@@ -1,8 +1,8 @@
-import { loadCredentials } from "./storage/credentials.js";
-import { doQRLogin } from "./login/qr.js";
-import { startPolling } from "./polling/loop.js";
-import { createMcpServer } from "./mcp/server.js";
-import { DEFAULT_BASE_URL } from "./config.js";
+import { loadCredentials } from "./storage/credentials";
+import { doQRLogin } from "./login/qr";
+import { startPolling } from "./polling/loop";
+import { createMcpServer } from "./mcp/server";
+import { DEFAULT_BASE_URL } from "./config";
 
 function log(msg: string) {
   process.stderr.write(`[opencode-wechat] ${msg}\n`);

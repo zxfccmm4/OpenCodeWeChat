@@ -4,13 +4,13 @@ import {
   BOT_TYPE,
   LONG_POLL_TIMEOUT_MS,
   QR_POLL_TIMEOUT_MS,
-} from "../config.js";
+} from "../config";
 import type {
   QRCodeResponse,
   QRStatusResponse,
   GetUpdatesResp,
   WeixinMessage,
-} from "../types/wechat.js";
+} from "../types/wechat";
 
 export class IlinkApiError extends Error {
   constructor(

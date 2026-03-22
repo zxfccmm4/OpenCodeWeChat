@@ -1,8 +1,8 @@
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import type { AccountData } from "../types/wechat.js";
-import { sendTextMessage, generateClientId } from "../api/ilink.js";
-import { getCachedContextToken } from "../core/context-token.js";
+import type { AccountData } from "../types/wechat";
+import { sendTextMessage, generateClientId } from "../api/ilink";
+import { getCachedContextToken } from "../core/context-token";
 import { CHANNEL_NAME, CHANNEL_VERSION } from "../config.js";
 
 export function createToolHandlers(

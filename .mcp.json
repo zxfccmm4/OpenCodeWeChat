@@ -2,7 +2,7 @@
   "mcpServers": {
     "wechat": {
       "command": "bun",
-      "args": ["./src/index.ts"]
+      "args": ["./index.ts"]
     }
   }
 }

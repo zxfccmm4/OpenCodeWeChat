@@ -13,11 +13,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true,
-    "sourceMap": true
+    "isolatedModules": true,
+    "noEmit": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["*.ts", "api/*.ts", "core/*.ts", "login/*.ts", "mcp/*.ts", "polling/*.ts", "storage/*.ts", "types/*.ts"],
+  "exclude": ["node_modules", "dist", "claude-code-wechat-channel"]
 }

@@ -67,14 +67,13 @@ bun setup.ts
 如果终端二维码显示不完整，可以用以下方式获取链接：
 
 ```bash
-# 获取二维码链接后手动在微信中扫码
-bun -e "import {fetchQRCode} from './src/api/ilink.ts'; const q = await fetchQRCode('https://ilinkai.weixin.qq.com'); console.log(q.qrcode_img_content);"
+bun -e "import {fetchQRCode} from './api/ilink.ts'; const q = await fetchQRCode('https://ilinkai.weixin.qq.com'); console.log(q.qrcode_img_content);"
 ```
 
 ### 3. 启动通道
 
 ```bash
-bun src/index.ts
+bun index.ts
 ```
 
 ### 4. 开始对话
@@ -85,22 +84,26 @@ bun src/index.ts
 
 ```
 OpenCodeWeChat/
-├── src/
-│   ├── api/ilink.ts          # ilink API 客户端
-│   ├── config.ts              # 配置常量
-│   ├── core/
-│   │   ├── message.ts         # 消息解析、文本提取、引用消息
-│   │   └── context-token.ts    # Context token 缓存
-│   ├── login/qr.ts            # QR 码登录流程
-│   ├── mcp/
-│   │   ├── server.ts           # MCP Server 创建
-│   │   └── tools.ts            # wechat_reply 工具定义
-│   ├── polling/loop.ts        # 长轮询消息循环
-│   ├── storage/
-│   │   ├── credentials.ts      # 凭据加载/保存
-│   │   └── sync-buffer.ts      # Sync buffer 持久化
-│   └── index.ts               # 入口
-├── setup.ts                    # 独立扫码登录工具
+├── api/
+│   └── ilink.ts               # ilink API 客户端
+├── core/
+│   ├── message.ts             # 消息解析、文本提取、引用消息
+│   └── context-token.ts       # Context token 缓存
+├── login/
+│   └── qr.ts                  # QR 码登录流程
+├── mcp/
+│   ├── server.ts              # MCP Server 创建
+│   └── tools.ts               # wechat_reply 工具定义
+├── polling/
+│   └── loop.ts                # 长轮询消息循环
+├── storage/
+│   ├── credentials.ts         # 凭据加载/保存
+│   └── sync-buffer.ts         # Sync buffer 持久化
+├── types/
+│   └── wechat.ts              # TypeScript 类型定义
+├── config.ts                  # 配置常量
+├── index.ts                   # 入口
+├── setup.ts                   # 独立扫码登录工具
 ├── tsconfig.json
 ├── package.json
 ├── .mcp.json                  # Claude Code MCP 配置
