@@ -12,7 +12,7 @@
 
 ```
 ┌──────────┐    ┌──────────────┐   ┌────────────┐   ┌─────────────────┐
-│ 微信 iOS │───▶│ WeChat       │──▶│  ilink API │──▶│ OpenCodeWeChat  │
+│ 微信客户端 │──▶│ WeChat       │──▶│  ilink API │──▶│ OpenCodeWeChat  │
 │          │    │ ClawBot      │   │            │   │                 │
 └──────────┘    └──────────────┘   └────────────┘   └────────┬────────┘
                                                               │
@@ -34,7 +34,7 @@
 - [Bun](https://bun.sh) >= 1.0
 - [Claude Code](https://claude.com/claude-code) >= 2.1.80
 - claude.ai 账号登录（不支持 API Key）
-- 微信 iOS 最新版（需支持 ClawBot 插件）
+- 微信 iOS 或 Android 最新版（需支持 ClawBot 插件）
 
 ## 快速开始
 
@@ -179,7 +179,7 @@ OPENCODE_AGENT=omo bun index.ts
 
 - 使用 `OPENCODE_SERVER_PASSWORD` 环境变量进行认证（OpenCode 桌面应用已设置）
 - 每次启动只能连接一个 ClawBot 实例
-- 微信 ClawBot 目前仅支持 iOS 最新版
+- 微信 ClawBot 支持 iOS 和 Android 最新版
 - OpenCode 会话关闭后通道也会断开
 
 ## License

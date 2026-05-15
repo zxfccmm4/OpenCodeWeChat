@@ -32,7 +32,7 @@ opencode-wechat-0.2.0.tar.gz
 - Bun >= 1.0
 - OpenCode CLI 可用，且 `opencode` 在 `PATH` 中
 - OpenCode 已配置可用模型或已安装并配置 OMO / oh-my-openagent
-- 微信 iOS 最新版，并支持 ClawBot
+- 微信 iOS 或 Android 最新版，并支持 ClawBot
 
 检查命令：
 
