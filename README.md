@@ -144,6 +144,12 @@ bun index.ts    # 启动通道（已有凭据时直接启动）
 
 部署到 macOS launchd、Linux systemd 或从源码包安装时，参考 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
+GitHub Release 中的 `opencode-wechat-0.2.0.tar.gz` 是完整源码包，包含 README、部署文档、TypeScript 源码、`bun.lock` 和效果预览截图资源。下载后可用以下方式校验：
+
+```bash
+shasum -a 256 opencode-wechat-0.2.0.tar.gz
+```
+
 ## 配置
 
 | 环境变量 | 默认值 | 说明 |
