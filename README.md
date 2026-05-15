@@ -140,13 +140,34 @@ bun setup.ts    # 扫码登录（或重新登录）
 bun index.ts    # 启动通道（已有凭据时直接启动）
 ```
 
+## 部署
+
+部署到 macOS launchd、Linux systemd 或从源码包安装时，参考 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
 ## 配置
 
 | 环境变量 | 默认值 | 说明 |
 |----------|--------|------|
 | `HOME` | 系统默认值 | 凭据保存目录前缀 |
+| `OPENCODE_PROVIDER_ID` | 未设置 | 可选，指定 OpenCode provider；不设置时使用 OpenCode 默认模型 |
+| `OPENCODE_MODEL_ID` | 未设置 | 可选，指定 OpenCode model；必须和 `OPENCODE_PROVIDER_ID` 同时设置 |
+| `OPENCODE_AGENT` | 未设置 | 可选，指定 OpenCode agent；例如 `omo` 或 `sisyphus` 使用 OMO 主 agent |
 
 凭据文件路径：`~/.claude/channels/wechat/account.json`
+
+例如固定使用 GitHub Copilot 的默认 Claude Sonnet：
+
+```bash
+OPENCODE_PROVIDER_ID=github-copilot OPENCODE_MODEL_ID=claude-sonnet-4.6 bun index.ts
+```
+
+使用 OMO / oh-my-openagent：
+
+```bash
+OPENCODE_AGENT=omo bun index.ts
+```
+
+`omo` / `sisyphus` 会自动映射为 OpenCode 注册的 `Sisyphus - Ultraworker` agent。通常不要同时设置 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，让 OMO 按自己的 agent 配置选择模型。
 
 ## 注意事项
 
