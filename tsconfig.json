@@ -16,6 +16,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["*.ts", "api/*.ts", "core/*.ts", "login/*.ts", "mcp/*.ts", "polling/*.ts", "storage/*.ts", "types/*.ts"],
+  "include": ["*.ts", "api/*.ts", "core/*.ts", "login/*.ts", "mcp/*.ts", "polling/*.ts", "scripts/*.ts", "storage/*.ts", "types/*.ts"],
   "exclude": ["node_modules", "dist", "claude-code-wechat-channel"]
 }

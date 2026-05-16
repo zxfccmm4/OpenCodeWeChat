@@ -15,6 +15,33 @@ function logError(msg: string) {
 
 let activeAccount: ReturnType<typeof loadCredentials>;
 let opencodeSession: OpencodeSession | null = null;
+let shuttingDown = false;
+
+function closeOpencodeSession() {
+  if (!opencodeSession) return;
+  opencodeSession.close();
+  opencodeSession = null;
+}
+
+function shutdown(code: number, reason?: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  if (reason) log(reason);
+  closeOpencodeSession();
+  process.exit(code);
+}
+
+process.on("SIGINT", () => {
+  shutdown(0, "收到 SIGINT，正在退出...");
+});
+
+process.on("SIGTERM", () => {
+  shutdown(0, "收到 SIGTERM，正在退出...");
+});
+
+process.on("exit", () => {
+  closeOpencodeSession();
+});
 
 async function main() {
   let account = loadCredentials();
@@ -40,6 +67,7 @@ async function main() {
 }
 
 main().catch((err) => {
+  closeOpencodeSession();
   logError(`Fatal: ${String(err)}`);
   process.exit(1);
 });

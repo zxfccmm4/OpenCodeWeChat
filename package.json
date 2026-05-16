@@ -7,7 +7,11 @@
   "scripts": {
     "setup": "bun setup.ts",
     "start": "bun index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "package:current": "bun scripts/package-app.ts",
+    "package:mac": "bun scripts/package-app.ts --target macos-arm64 --target macos-x64",
+    "package:win": "bun scripts/package-app.ts --target windows-x64",
+    "package:all": "bun scripts/package-app.ts --target macos-arm64 --target macos-x64 --target windows-x64"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

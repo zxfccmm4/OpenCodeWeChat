@@ -140,6 +140,35 @@ bun setup.ts    # 扫码登录（或重新登录）
 bun index.ts    # 启动通道（已有凭据时直接启动）
 ```
 
+## 一键启动打包
+
+项目现在支持直接生成双击启动包，产物会输出到 `dist/one-click/`：
+
+```bash
+bun run package:current   # 为当前系统打包
+bun run package:mac       # 生成 macOS Apple Silicon + Intel 包
+bun run package:win       # 生成 Windows x64 包
+bun run package:all       # 全部一起打包
+```
+
+每个启动包都会包含：
+
+- 主程序二进制：`bin/OpenCodeWeChat` / `bin/OpenCodeWeChat.exe`
+- 独立登录工具：`bin/OpenCodeWeChat-Setup` / `bin/OpenCodeWeChat-Setup.exe`
+- 双击启动器：`OpenCodeWeChat.command` 或 `OpenCodeWeChat.bat`
+- 重新扫码启动器：`Login WeChat.command` 或 `Login WeChat.bat`
+- 可选配置模板：`opencode-wechat.env.example`
+
+首次跨平台打包时，Bun 可能需要联网下载对应平台的运行时。
+
+如果需要固定 agent、模型，或者手动指定 `opencode` 路径，可以把启动包目录里的 `opencode-wechat.env.example` 复制为 `opencode-wechat.env`，再填写：
+
+```bash
+OPENCODE_AGENT=omo
+# 或：
+OPENCODE_BIN=/opt/homebrew/bin/opencode
+```
+
 ## 部署
 
 部署到 macOS launchd、Linux systemd 或从源码包安装时，参考 [DEPLOYMENT.md](DEPLOYMENT.md)。

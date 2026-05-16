@@ -1,4 +1,10 @@
-import { createOpencodeServer } from "@opencode-ai/sdk";
+import {
+  spawn,
+  type ChildProcessByStdio,
+} from "node:child_process";
+import os from "node:os";
+import path from "node:path";
+import type { Readable } from "node:stream";
 
 interface OpencodeModel {
   providerID: string;
@@ -16,12 +22,183 @@ export interface OpencodeSession {
   authHeader: string;
   model?: OpencodeModel;
   agent?: string;
+  close(): void;
+}
+
+interface StartedOpencodeServer {
+  url: string;
+  close(): void;
 }
 
 function getAuthHeader(): string {
   const password = process.env.OPENCODE_SERVER_PASSWORD ?? "";
   const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode";
   return "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
+}
+
+function getPathEnvKey(env: NodeJS.ProcessEnv): string {
+  if (process.platform !== "win32") return "PATH";
+  return Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "Path";
+}
+
+function getOpencodePathHints(): string[] {
+  switch (process.platform) {
+    case "darwin":
+      return [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+      ];
+    case "win32": {
+      const homeDir = process.env.USERPROFILE?.trim() || os.homedir();
+      const localAppData = process.env.LOCALAPPDATA?.trim()
+        || path.join(homeDir, "AppData", "Local");
+      const programFiles = process.env.ProgramFiles?.trim() || "C:\\Program Files";
+      const programFilesX86 = process.env["ProgramFiles(x86)"]?.trim();
+      return [
+        path.join(localAppData, "Programs", "OpenCode", "bin"),
+        path.join(localAppData, "Programs", "OpenCode"),
+        path.join(programFiles, "OpenCode", "bin"),
+        path.join(programFiles, "OpenCode"),
+        ...(programFilesX86
+          ? [
+            path.join(programFilesX86, "OpenCode", "bin"),
+            path.join(programFilesX86, "OpenCode"),
+          ]
+          : []),
+      ];
+    }
+    default:
+      return [
+        path.join(os.homedir(), ".local", "bin"),
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+      ];
+  }
+}
+
+function buildOpencodeEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  const pathKey = getPathEnvKey(env);
+  const currentPath = env[pathKey] ?? env.PATH ?? "";
+  const merged = [...getOpencodePathHints(), ...currentPath.split(path.delimiter)]
+    .filter(Boolean)
+    .filter((value, index, list) => list.indexOf(value) === index);
+  env[pathKey] = merged.join(path.delimiter);
+  env.OPENCODE_CONFIG_CONTENT = JSON.stringify({
+    logLevel: "ERROR",
+  });
+  return env;
+}
+
+function resolveOpencodeCommand(): string {
+  return process.env.OPENCODE_BIN?.trim() || "opencode";
+}
+
+function isMissingCommandError(err: unknown): err is NodeJS.ErrnoException {
+  return err instanceof Error && "code" in err && err.code === "ENOENT";
+}
+
+function buildMissingCommandMessage(command: string): string {
+  const sharedHint = "也可以在启动包目录的 opencode-wechat.env 中设置 OPENCODE_BIN。";
+  switch (process.platform) {
+    case "win32":
+      return `未找到 OpenCode CLI（${command}）。请先安装 OpenCode，并确保 opencode.cmd 或 opencode.exe 在 PATH 中。${sharedHint}`;
+    case "darwin":
+      return `未找到 OpenCode CLI（${command}）。请确认 OpenCode 已安装，并且 opencode 在 PATH 中。${sharedHint}`;
+    default:
+      return `未找到 OpenCode CLI（${command}）。请确认 opencode 命令可用。${sharedHint}`;
+  }
+}
+
+function killOpencodeProcess(proc: ChildProcessByStdio<null, Readable, Readable>): void {
+  if (proc.killed) return;
+  try {
+    proc.kill();
+  } catch {
+    // best-effort
+  }
+}
+
+async function startOpencodeServer(): Promise<StartedOpencodeServer> {
+  const command = resolveOpencodeCommand();
+  const proc = spawn(
+    command,
+    ["serve", "--hostname=127.0.0.1", "--port=0", "--log-level=ERROR"],
+    {
+      env: buildOpencodeEnv(),
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  let settled = false;
+  let output = "";
+  let clearTimer = () => {};
+
+  return await new Promise<StartedOpencodeServer>((resolve, reject) => {
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimer();
+      callback();
+    };
+
+    const timeoutId = setTimeout(() => {
+      finish(() => {
+        killOpencodeProcess(proc);
+        reject(new Error("OpenCode 服务启动超时，请确认 `opencode serve` 能正常运行。"));
+      });
+    }, 5_000);
+
+    clearTimer = () => clearTimeout(timeoutId);
+
+    const tryResolveUrl = (chunk: string) => {
+      output += chunk;
+      const match = output.match(/opencode server listening.*?on\s+(https?:\/\/[^\s]+)/);
+      const url = match?.[1];
+      if (!url) return;
+
+      finish(() => {
+        resolve({
+          url,
+          close() {
+            killOpencodeProcess(proc);
+          },
+        });
+      });
+    };
+
+    proc.stdout.on("data", (chunk: Buffer | string) => {
+      tryResolveUrl(chunk.toString());
+    });
+
+    proc.stderr.on("data", (chunk: Buffer | string) => {
+      tryResolveUrl(chunk.toString());
+    });
+
+    proc.on("error", (err) => {
+      finish(() => {
+        if (isMissingCommandError(err)) {
+          reject(new Error(buildMissingCommandMessage(command)));
+          return;
+        }
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
+    });
+
+    proc.on("exit", (code, signal) => {
+      finish(() => {
+        const details = output.trim() ? `\nOpenCode 输出:\n${output.trim()}` : "";
+        reject(
+          new Error(
+            `OpenCode 服务提前退出（code=${code ?? "null"}, signal=${signal ?? "null"}）。${details}`,
+          ),
+        );
+      });
+    });
+  });
 }
 
 function getModelOverride(): OpencodeModel | undefined {
@@ -114,12 +291,7 @@ async function readErrorDetails(response: Response): Promise<string> {
 export async function startOpencode(): Promise<OpencodeSession> {
   process.stderr.write("[opencode] 启动 OpenCode 服务器...\n");
 
-  const server = await createOpencodeServer({
-    port: 0,
-    config: {
-      logLevel: "ERROR",
-    },
-  });
+  const server = await startOpencodeServer();
 
   process.stderr.write(`[opencode] 服务器监听 ${server.url}\n`);
 
@@ -163,6 +335,9 @@ export async function startOpencode(): Promise<OpencodeSession> {
     authHeader,
     model,
     agent,
+    close() {
+      server.close();
+    },
   };
 }
 
