@@ -1,42 +1,33 @@
 # OpenCodeWeChat 部署文档
 
-本文档说明如何从源码包部署 OpenCodeWeChat，并使用 OpenCode 的 OMO agent 处理微信消息。
+本文档面向“从源码包部署 OpenCodeWeChat”的场景，覆盖安装、微信登录、前台运行、`launchd` / `systemd` 托管、OMO 快速使用、验证与排障。
 
-## 1. 部署产物
+## 适用场景
 
-推荐使用源码包部署：
+推荐在以下场景使用本部署文档：
 
-```bash
-opencode-wechat-0.2.0.tar.gz
-```
+- 你拿到的是源码包或 git 仓库，而不是现成一键启动包
+- 你希望在 macOS `launchd` 或 Linux `systemd` 下长期运行
+- 你希望在部署后通过微信直接触发 OMO / Sisyphus
 
-源码包包含 TypeScript 源码、`package.json`、`bun.lock`、README 和部署文档；不包含：
+如果你只是想双击运行，优先使用 release 里的 macOS / Windows 一键启动包。
 
-- `node_modules/`
-- 微信登录凭据
-- OpenCode 本地配置
-- 运行日志
-
-微信凭据默认保存到：
-
-```bash
-~/.claude/channels/wechat/account.json
-~/.claude/channels/wechat/sync_buf.txt
-~/.claude/channels/wechat/context_tokens.json
-~/.claude/channels/wechat/processed_messages.json
-```
-
-## 2. 服务器要求
+## 环境要求
 
 部署机需要满足：
 
 - macOS 或 Linux
 - Bun >= 1.0
 - OpenCode CLI 可用，且 `opencode` 在 `PATH` 中
-- OpenCode 已配置可用模型或已安装并配置 OMO / oh-my-openagent
+- OpenCode 已完成本机登录
 - 微信 iOS 或 Android 最新版，并支持 ClawBot
 
-检查命令：
+如果要使用 OMO，还需要：
+
+- 已安装并配置 OMO / oh-my-openagent
+- `opencode agent list` 能看到 `Sisyphus - Ultraworker`
+
+建议先检查：
 
 ```bash
 bun --version
@@ -44,11 +35,32 @@ opencode --version
 opencode agent list
 ```
 
-如果要使用 OMO，`opencode agent list` 中应能看到 `Sisyphus - Ultraworker`。
+## 部署产物
 
-## 3. 解包安装
+推荐使用源码包部署：
 
-把源码包放到部署目录，例如 `/opt/opencode-wechat`：
+```bash
+opencode-wechat-0.2.0.tar.gz
+```
+
+源码包通常包含：
+
+- TypeScript 源码
+- `package.json`
+- `bun.lock`
+- `README.md`
+- `DEPLOYMENT.md`
+
+源码包通常不包含：
+
+- `node_modules/`
+- 微信登录凭据
+- OpenCode 本地配置
+- 运行日志
+
+## 安装
+
+示例部署目录：
 
 ```bash
 sudo mkdir -p /opt/opencode-wechat
@@ -59,26 +71,20 @@ bun install --frozen-lockfile
 bun run typecheck
 ```
 
-如果部署机使用非默认 npm registry，可以在安装前设置：
+如果部署机使用特殊 npm registry，可以提前配置 `bunfig.toml`，或者使用 Bun 全局 registry 配置。
 
-```bash
-bunfig.toml
-```
+## 微信登录
 
-或直接使用环境变量 / Bun 全局配置；项目本身不要求固定 registry。
-
-## 4. 首次登录微信 ClawBot
-
-在部署机执行：
+首次需要在部署机执行：
 
 ```bash
 cd /opt/opencode-wechat
 bun setup.ts
 ```
 
-终端会显示二维码。用微信扫码并在 ClawBot 中确认后，凭据会保存到：
+扫码确认后，微信凭据会保存到：
 
-```bash
+```text
 ~/.claude/channels/wechat/account.json
 ```
 
@@ -88,7 +94,7 @@ bun setup.ts
 chmod 600 ~/.claude/channels/wechat/account.json
 ```
 
-## 5. 前台启动
+## 前台运行
 
 使用 OpenCode 默认模型：
 
@@ -104,7 +110,18 @@ cd /opt/opencode-wechat
 OPENCODE_AGENT=omo bun index.ts
 ```
 
-启动成功时应看到类似日志：
+如果需要固定 provider / model：
+
+```bash
+OPENCODE_PROVIDER_ID=github-copilot OPENCODE_MODEL_ID=claude-sonnet-4.6 bun index.ts
+```
+
+注意：
+
+- `OPENCODE_PROVIDER_ID` 和 `OPENCODE_MODEL_ID` 必须同时设置或同时不设置
+- 通常不要同时设置 `OPENCODE_AGENT` 和 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`
+
+启动成功时，日志应类似：
 
 ```text
 [opencode] 使用 OpenCode 默认模型
@@ -112,43 +129,62 @@ OPENCODE_AGENT=omo bun index.ts
 [polling] 开始监听微信消息...
 ```
 
-`OPENCODE_AGENT=omo` 会自动解析为 OpenCode 注册的 `Sisyphus - Ultraworker`。通常不要同时设置 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，让 OMO 按自身 agent 配置选择模型。
-
-如果希望在微信侧更明确地触发 OMO 的官方工作流或多智能体模式，可以在消息开头使用以下前缀：
-
-- `#ulw` / `#ultrawork`
-- `#plan`
-- `#start`（会优先续跑同一微信用户最近一次 `#plan` 的结果）
-- `#delegate`
-- `#deep`
-- `#review`
-- `#summary`
-
-例如：
-
-```text
-#plan 帮我先做一个排障计划
-```
-
-桥接层会把这些前缀编译成更贴近 Prometheus、Atlas 和 Ultrawork 的提示增强，但不会改变现有的回复链路和同步机制。
-
-默认日志不会记录聊天正文。如果需要临时排障，可在启动前附加：
+默认日志不会记录聊天正文。如果需要临时排障，可附加：
 
 ```bash
 OPENCODE_WECHAT_VERBOSE_LOGS=1 bun index.ts
 ```
 
-如果确实要固定模型，可以使用：
+## OMO 微信协议快速使用
 
-```bash
-OPENCODE_PROVIDER_ID=github-copilot OPENCODE_MODEL_ID=claude-sonnet-4.6 bun index.ts
+如果通过 `OPENCODE_AGENT=omo` 或 `OPENCODE_AGENT=sisyphus` 启动，可以在微信里直接发送以下前缀：
+
+- `#ulw` / `#ultrawork`
+- `#plan`
+- `#start`
+- `#delegate`
+- `#deep`
+- `#review`
+- `#summary`
+
+简版建议：
+
+- 不确定怎么开始，先发 `#plan`
+- 想沿着最近一次计划继续，发 `#start`
+- 想让 OMO 尽量自主一路做完，发 `#ulw`
+- 想做风险检查或结果压缩，分别用 `#review` 和 `#summary`
+
+可直接发送的微信示例：
+
+```text
+#plan 帮我给这个故障排查拆一个计划
+#start 按刚才的计划继续推进
+#ulw 直接把这个问题从排查到修复都做完
 ```
 
-`OPENCODE_PROVIDER_ID` 和 `OPENCODE_MODEL_ID` 必须同时设置或同时不设置。
+更完整的场景说明和分类示例，见 [README.md](/Users/stevezhou/OpenCodeWeChat/README.md) 里的“OMO 微信协议使用指南”。
 
-## 6. macOS launchd 托管
+## 本地状态目录
 
-创建 LaunchAgent：
+默认目录：
+
+```text
+~/.claude/channels/wechat/
+```
+
+主要文件：
+
+- `account.json`：微信账号凭据
+- `sync_buf.txt`：长轮询同步游标
+- `context_tokens.json`：最近缓存的 `context_token`
+- `processed_messages.json`：最近已处理消息去重记录
+- `omo_plan_context.json`：最近一次 `#plan` 结果缓存
+
+一般不要手动删除这些文件。只有在明确需要重新同步或清空某类缓存状态时，才有选择地处理。
+
+## macOS launchd 托管
+
+创建目录：
 
 ```bash
 mkdir -p ~/Library/LaunchAgents ~/Library/Logs/OpenCodeWeChat
@@ -177,7 +213,7 @@ mkdir -p ~/Library/LaunchAgents ~/Library/Logs/OpenCodeWeChat
   <key>EnvironmentVariables</key>
   <dict>
     <key>HOME</key>
-    <string>/Users/stevezhou</string>
+    <string>/Users/yourname</string>
     <key>PATH</key>
     <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     <key>OPENCODE_AGENT</key>
@@ -191,19 +227,19 @@ mkdir -p ~/Library/LaunchAgents ~/Library/Logs/OpenCodeWeChat
   <true/>
 
   <key>StandardOutPath</key>
-  <string>/Users/stevezhou/Library/Logs/OpenCodeWeChat/stdout.log</string>
+  <string>/Users/yourname/Library/Logs/OpenCodeWeChat/stdout.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/Users/stevezhou/Library/Logs/OpenCodeWeChat/stderr.log</string>
+  <string>/Users/yourname/Library/Logs/OpenCodeWeChat/stderr.log</string>
 </dict>
 </plist>
 ```
 
-根据实际路径替换：
+根据实际环境替换：
 
-- `/opt/homebrew/bin/bun`：用 `which bun` 查看
-- `/opt/opencode-wechat`：项目部署目录
-- `/Users/stevezhou`：运行用户的 HOME
+- `/opt/homebrew/bin/bun`
+- `/opt/opencode-wechat`
+- `/Users/yourname`
 
 加载服务：
 
@@ -226,7 +262,7 @@ launchctl stop com.local.opencode-wechat
 launchctl unload ~/Library/LaunchAgents/com.local.opencode-wechat.plist
 ```
 
-## 7. Linux systemd 托管
+## Linux systemd 托管
 
 创建 `/etc/systemd/system/opencode-wechat.service`：
 
@@ -265,9 +301,9 @@ sudo systemctl start opencode-wechat
 journalctl -u opencode-wechat -f
 ```
 
-## 8. 验证部署
+## 验证部署
 
-启动后在微信 ClawBot 对话里发送一条测试消息，例如：
+启动后，在微信 ClawBot 对话里发一条测试消息，例如：
 
 ```text
 hello
@@ -282,13 +318,13 @@ hello
 [polling] 已发送回复
 ```
 
-如果只想验证 OpenCode agent 是否可用，可以先执行：
+如果只想验证 OMO agent 是否可用：
 
 ```bash
 opencode agent list | grep "Sisyphus - Ultraworker"
 ```
 
-## 9. 升级流程
+## 升级流程
 
 停止服务：
 
@@ -296,13 +332,13 @@ opencode agent list | grep "Sisyphus - Ultraworker"
 launchctl stop com.local.opencode-wechat
 ```
 
-或 Linux：
+Linux：
 
 ```bash
 sudo systemctl stop opencode-wechat
 ```
 
-备份凭据：
+备份本地状态：
 
 ```bash
 cp -a ~/.claude/channels/wechat ~/.claude/channels/wechat.backup.$(date +%Y%m%d%H%M%S)
@@ -317,25 +353,37 @@ bun install --frozen-lockfile
 bun run typecheck
 ```
 
-重新启动服务。
+然后重新启动服务。
 
-## 10. 常见问题
+## 常见问题
+
+### `未找到 OpenCode agent`
+
+检查：
+
+```bash
+opencode agent list
+```
+
+如果你打算使用 OMO，确认列表里有：
+
+```text
+Sisyphus - Ultraworker
+```
 
 ### `Prompt 失败: 500`
 
-先确认启动日志里的 agent：
+先确认启动日志里是否真的用了 OMO agent：
 
 ```text
 [opencode] 使用 agent: Sisyphus - Ultraworker
 ```
 
-如果没有这行，确认启动命令设置了：
+如果没有，确认启动时设置了：
 
 ```bash
 OPENCODE_AGENT=omo
 ```
-
-如果报 `未找到 OpenCode agent`，说明部署机上的 OpenCode / OMO 没有注册 `Sisyphus - Ultraworker`，需要先修复 OpenCode 插件配置。
 
 ### 微信收不到回复
 
@@ -351,7 +399,7 @@ OPENCODE_AGENT=omo
 [opencode] 收到响应
 ```
 
-但没有 `已发送回复`，通常是以下几种情况：
+但没有 `已发送回复`，常见原因包括：
 
 - 入站消息缺少可用的 `context_token`，且本地缓存里也没有该用户最近的 token
 - ilink `sendmessage` 请求失败
@@ -359,14 +407,14 @@ OPENCODE_AGENT=omo
 
 ### 重启后重复或漏消息
 
-同步和去重状态保存在：
+优先检查：
 
-```bash
+```text
 ~/.claude/channels/wechat/sync_buf.txt
 ~/.claude/channels/wechat/processed_messages.json
 ```
 
-一般不要手动删除。只有在明确需要重新同步或清空去重状态时才处理这些文件。
+一般不要手动删除。只有在明确需要重新同步或清空去重状态时，才有选择地处理。
 
 ### 避免多个实例同时运行
 
@@ -376,4 +424,4 @@ OPENCODE_AGENT=omo
 pgrep -fl "bun index.ts|opencode serve"
 ```
 
-如果有多个 `bun index.ts`，保留一个并停止其他实例。
+如果看到多个 `bun index.ts`，只保留一个实例。

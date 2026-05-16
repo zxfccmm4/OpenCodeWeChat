@@ -1,7 +1,7 @@
 {
   "name": "opencode-wechat",
   "version": "0.2.0",
-  "description": "Bridge WeChat messages into Claude Code sessions via the official ClawBot ilink API",
+  "description": "Bridge WeChat messages into local OpenCode sessions via the official ClawBot ilink API",
   "type": "module",
   "private": true,
   "scripts": {
