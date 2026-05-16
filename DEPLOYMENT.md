@@ -114,6 +114,24 @@ OPENCODE_AGENT=omo bun index.ts
 
 `OPENCODE_AGENT=omo` 会自动解析为 OpenCode 注册的 `Sisyphus - Ultraworker`。通常不要同时设置 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，让 OMO 按自身 agent 配置选择模型。
 
+如果希望在微信侧更明确地触发 OMO 的官方工作流或多智能体模式，可以在消息开头使用以下前缀：
+
+- `#ulw` / `#ultrawork`
+- `#plan`
+- `#start`（会优先续跑同一微信用户最近一次 `#plan` 的结果）
+- `#delegate`
+- `#deep`
+- `#review`
+- `#summary`
+
+例如：
+
+```text
+#plan 帮我先做一个排障计划
+```
+
+桥接层会把这些前缀编译成更贴近 Prometheus、Atlas 和 Ultrawork 的提示增强，但不会改变现有的回复链路和同步机制。
+
 默认日志不会记录聊天正文。如果需要临时排障，可在启动前附加：
 
 ```bash

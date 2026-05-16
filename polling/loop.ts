@@ -1,5 +1,6 @@
 import { generateClientId, getUpdates, sendTextMessage } from "../api/ilink";
 import { cacheContextToken, getCachedContextToken } from "../core/context-token";
+import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
 import { parseMessage } from "../core/message";
 import {
@@ -18,25 +19,37 @@ import {
   hasProcessedMessage,
   markMessageProcessed,
 } from "../storage/processed-messages";
+import {
+  getLatestPlanContext,
+  saveLatestPlanContext,
+} from "../storage/omo-plan-context";
 
 type ProcessUpdateBatchDeps = {
+  buildOmoPrompt: typeof buildOmoPrompt;
   cacheContextToken: typeof cacheContextToken;
   generateClientId: typeof generateClientId;
   getCachedContextToken: typeof getCachedContextToken;
+  getLatestPlanContext: typeof getLatestPlanContext;
   hasProcessedMessage: typeof hasProcessedMessage;
   markMessageProcessed: typeof markMessageProcessed;
+  parseOmoCommand: typeof parseOmoCommand;
   saveSyncBuffer: typeof saveSyncBuffer;
+  saveLatestPlanContext: typeof saveLatestPlanContext;
   sendPrompt: typeof sendPrompt;
   sendTextMessage: typeof sendTextMessage;
 };
 
 const DEFAULT_BATCH_DEPS: ProcessUpdateBatchDeps = {
+  buildOmoPrompt,
   cacheContextToken,
   generateClientId,
   getCachedContextToken,
+  getLatestPlanContext,
   hasProcessedMessage,
   markMessageProcessed,
+  parseOmoCommand,
   saveSyncBuffer,
+  saveLatestPlanContext,
   sendPrompt,
   sendTextMessage,
 };
@@ -81,6 +94,7 @@ export async function processUpdateBatch(params: {
   for (const msg of response.msgs ?? []) {
     const parsed = parseMessage(msg);
     if (!parsed) continue;
+    const omoCommand = deps.parseOmoCommand(parsed.text);
 
     if (deps.hasProcessedMessage(parsed.dedupeKey)) {
       log(`跳过已处理消息: from=${parsed.senderId}`);
@@ -99,7 +113,14 @@ export async function processUpdateBatch(params: {
 
     try {
       log("发送至 OpenCode...");
-      const responseText = await deps.sendPrompt(opencode, parsed.text);
+      const compiledPrompt = deps.buildOmoPrompt(
+        parsed.text,
+        deps.getLatestPlanContext(parsed.senderId),
+      );
+      const responseText = await deps.sendPrompt(
+        opencode,
+        compiledPrompt,
+      );
       const contextToken = parsed.contextToken || deps.getCachedContextToken(parsed.senderId);
       if (!responseText) {
         log("OpenCode 返回空响应，跳过发送");
@@ -120,6 +141,16 @@ export async function processUpdateBatch(params: {
         CHANNEL_VERSION,
       );
       log("已发送回复");
+      if (omoCommand.mode === "plan") {
+        deps.saveLatestPlanContext(
+          {
+            originalRequest: omoCommand.body || parsed.text,
+            planResponse: responseText,
+            savedAt: new Date().toISOString(),
+          },
+          parsed.senderId,
+        );
+      }
       deps.markMessageProcessed(parsed.dedupeKey);
     } catch (err) {
       batchSucceeded = false;

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { processUpdateBatch } from "../polling/loop";
 import type { AccountData, GetUpdatesResp } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
+import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 
 type TestDeps = NonNullable<Parameters<typeof processUpdateBatch>[0]["deps"]>;
 
@@ -27,10 +28,16 @@ function createDeps(overrides: Partial<TestDeps> = {}): TestDeps {
     cacheContextToken() {
       // noop
     },
+    buildOmoPrompt(text, recentPlanContext) {
+      return buildOmoPrompt(text, recentPlanContext);
+    },
     generateClientId() {
       return "client-id-1";
     },
     getCachedContextToken() {
+      return undefined;
+    },
+    getLatestPlanContext() {
       return undefined;
     },
     hasProcessedMessage() {
@@ -39,7 +46,13 @@ function createDeps(overrides: Partial<TestDeps> = {}): TestDeps {
     markMessageProcessed() {
       // noop
     },
+    parseOmoCommand(text) {
+      return parseOmoCommand(text);
+    },
     saveSyncBuffer() {
+      // noop
+    },
+    saveLatestPlanContext() {
       // noop
     },
     async sendPrompt() {
@@ -183,5 +196,69 @@ describe("processUpdateBatch", () => {
     expect(result.batchSucceeded).toBe(true);
     expect(result.getUpdatesBuf).toBe("new-buf");
     expect(sentTokens).toEqual(["cached-ctx"]);
+  });
+
+  test("stores the latest plan response after a #plan request", async () => {
+    const savedPlans: Array<{ originalRequest: string; planResponse: string; userId: string }> = [];
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        saveLatestPlanContext(planContext, userId) {
+          savedPlans.push({
+            originalRequest: planContext.originalRequest,
+            planResponse: planContext.planResponse,
+            userId,
+          });
+        },
+      }),
+      opencode: TEST_SESSION,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "#plan 帮我拆一下实现步骤" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(savedPlans).toEqual([
+      {
+        originalRequest: "帮我拆一下实现步骤",
+        planResponse: "reply",
+        userId: "wx-user-1",
+      },
+    ]);
+  });
+
+  test("passes the latest cached plan into #start requests", async () => {
+    const prompts: string[] = [];
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        getLatestPlanContext() {
+          return {
+            originalRequest: "先帮我规划",
+            planResponse: "这是上一次的计划内容",
+            savedAt: "2026-05-16T09:00:00.000Z",
+          };
+        },
+        async sendPrompt(_session, prompt) {
+          prompts.push(prompt);
+          return "reply";
+        },
+      }),
+      opencode: TEST_SESSION,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "#start 按计划继续执行" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(prompts[0]).toContain("微信侧指令: #start (映射到 Atlas / /start-work)");
+    expect(prompts[0]).toContain("规划请求：先帮我规划");
+    expect(prompts[0]).toContain("这是上一次的计划内容");
   });
 });

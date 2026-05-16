@@ -22,6 +22,7 @@ export const CREDENTIALS_DIR = path.join(
   CHANNEL_NAME,
 );
 export const CREDENTIALS_FILE = path.join(CREDENTIALS_DIR, "account.json");
+export const OMO_PLAN_CONTEXT_FILE = path.join(CREDENTIALS_DIR, "omo_plan_context.json");
 export const PROCESSED_MESSAGES_FILE = path.join(CREDENTIALS_DIR, "processed_messages.json");
 export const SYNC_BUFFER_FILE = path.join(CREDENTIALS_DIR, "sync_buf.txt");
 

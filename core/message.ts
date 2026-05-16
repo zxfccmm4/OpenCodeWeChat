@@ -7,6 +7,7 @@ import {
   MSG_STATE_FINISH,
   type ParsedMessage,
 } from "../types/wechat.js";
+import { buildOmoPrompt } from "./omo-command.js";
 
 export function extractTextFromMessage(msg: WeixinMessage): string {
   if (!msg.item_list?.length) return "";
@@ -37,6 +38,7 @@ export function parseMessage(msg: WeixinMessage): ParsedMessage | null {
   const senderId = msg.from_user_id ?? "unknown";
 
   return {
+    compiledPrompt: buildOmoPrompt(text),
     dedupeKey: buildMessageDedupeKey(msg, senderId, text),
     senderId,
     text,
