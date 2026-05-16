@@ -12,9 +12,9 @@ OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到�
 
 ## 效果预览
 
-![微信对话效果](/Users/stevezhou/OpenCodeWeChat/wechat_1.jpg)
+![微信对话效果](wechat_1.jpg)
 
-![微信对话效果](/Users/stevezhou/OpenCodeWeChat/wechat_2.jpg)
+![微信对话效果](wechat_2.jpg)
 
 ## 当前能力
 
@@ -297,8 +297,8 @@ OpenCodeWeChat/
 
 ## 部署与发布
 
-- 源码部署、`launchd`、`systemd` 方案见 [DEPLOYMENT.md](/Users/stevezhou/OpenCodeWeChat/DEPLOYMENT.md)
-- 当前 release 说明见 [RELEASE-v0.2.0.md](/Users/stevezhou/OpenCodeWeChat/RELEASE-v0.2.0.md)
+- 源码部署、`launchd`、`systemd` 方案见 [DEPLOYMENT.md](DEPLOYMENT.md)
+- 当前 release 说明见 [RELEASE-v0.2.0.md](RELEASE-v0.2.0.md)
 
 ## License
 

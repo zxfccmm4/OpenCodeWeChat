@@ -162,7 +162,7 @@ OPENCODE_WECHAT_VERBOSE_LOGS=1 bun index.ts
 #ulw 直接把这个问题从排查到修复都做完
 ```
 
-更完整的场景说明和分类示例，见 [README.md](/Users/stevezhou/OpenCodeWeChat/README.md) 里的“OMO 微信协议使用指南”。
+更完整的场景说明和分类示例，见 [README.md](README.md) 里的“OMO 微信协议使用指南”。
 
 ## 本地状态目录
 
