@@ -1,6 +1,8 @@
 # OpenCodeWeChat v0.2.0
 
-OpenCodeWeChat `v0.2.0` 现已发布。当前版本除了补齐跨平台分发与启动体验，也已经具备了更可靠的消息同步能力，以及面向 OMO 的微信侧指令协议。
+OpenCodeWeChat `v0.2.0` 现已发布。
+
+这个版本让“微信作为本地 OpenCode / OMO 入口”真正变得更适合日常使用：除了补齐跨平台分发与启动体验，也加入了更可靠的消息同步能力，以及面向 OMO 的微信侧指令协议。
 
 ## 更新摘要
 
@@ -34,3 +36,9 @@ OpenCodeWeChat `v0.2.0` 现已发布。当前版本除了补齐跨平台分发�
 
 - `OpenCodeWeChat-0.2.0-windows-x64.zip`
   `d3aa5f0fc854c4d7beab312c6e7b1b460721f206ce01a1609b2d75194f91c756`
+
+## 快速上手
+
+- 如果你只想快速体验，直接下载对应平台的一键启动包
+- 如果你想使用 OMO，启动时设置 `OPENCODE_AGENT=omo`
+- 如果你想在微信里触发 OMO 工作流，可以直接发送 `#plan`、`#start`、`#ulw`、`#delegate`、`#deep`、`#review`、`#summary`
