@@ -1,6 +1,6 @@
 # OpenCodeWeChat v0.2.0 Release Draft
 
-以下内容可直接用于 GitHub Release。当前下载链接按仓库 `fendouai/OpenCodeWeChat` 和 tag `v0.2.0` 生成。
+以下内容可直接用于 GitHub Release。当前下载链接按仓库 `zxfccmm4/OpenCodeWeChat` 和 tag `v0.2.0` 生成。
 
 ## 更新摘要
 
@@ -15,9 +15,9 @@
 
 本次发布提供 macOS Apple Silicon、macOS Intel 和 Windows x64 三个一键启动包，解压后可直接双击启动。
 
-- macOS Apple Silicon: [OpenCodeWeChat-0.2.0-macos-arm64.zip](https://github.com/fendouai/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-arm64.zip) （43 MB）
-- macOS Intel: [OpenCodeWeChat-0.2.0-macos-x64.zip](https://github.com/fendouai/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-x64.zip) （47 MB）
-- Windows x64: [OpenCodeWeChat-0.2.0-windows-x64.zip](https://github.com/fendouai/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-windows-x64.zip) （79 MB）
+- macOS Apple Silicon: [OpenCodeWeChat-0.2.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-arm64.zip) （43 MB）
+- macOS Intel: [OpenCodeWeChat-0.2.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-x64.zip) （47 MB）
+- Windows x64: [OpenCodeWeChat-0.2.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-windows-x64.zip) （79 MB）
 
 ## SHA256 校验
 
