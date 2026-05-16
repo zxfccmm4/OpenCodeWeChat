@@ -1,6 +1,6 @@
-# OpenCodeWeChat v0.2.0
+# OpenCodeWeChat v0.3.0
 
-OpenCodeWeChat `v0.2.0` 现已发布。
+OpenCodeWeChat `v0.3.0` 现已发布。
 
 这个版本让“微信作为本地 OpenCode / OMO 入口”真正变得更适合日常使用：除了补齐跨平台分发与启动体验，也加入了更可靠的消息同步能力，以及面向 OMO 的微信侧指令协议。
 
@@ -22,20 +22,20 @@ OpenCodeWeChat `v0.2.0` 现已发布。
 
 本次发布提供 macOS Apple Silicon、macOS Intel 和 Windows x64 三个一键启动包。下载后解压即可使用，首次运行时可直接通过内置登录工具完成扫码配置。
 
-- macOS Apple Silicon: [OpenCodeWeChat-0.2.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-arm64.zip) （43 MB）
-- macOS Intel: [OpenCodeWeChat-0.2.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-x64.zip) （47 MB）
-- Windows x64: [OpenCodeWeChat-0.2.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-windows-x64.zip) （79 MB）
+- macOS Apple Silicon: [OpenCodeWeChat-0.3.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.3.0/OpenCodeWeChat-0.3.0-macos-arm64.zip)
+- macOS Intel: [OpenCodeWeChat-0.3.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.3.0/OpenCodeWeChat-0.3.0-macos-x64.zip)
+- Windows x64: [OpenCodeWeChat-0.3.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.3.0/OpenCodeWeChat-0.3.0-windows-x64.zip)
 
 ## SHA256 校验
 
-- `OpenCodeWeChat-0.2.0-macos-arm64.zip`
-  `ad2889096d5c9ca54b0b94d6829adbdaebf9fcdc75c15fe369823e8036ed3d1d`
+- `OpenCodeWeChat-0.3.0-macos-arm64.zip`
+  `待发布后补充`
 
-- `OpenCodeWeChat-0.2.0-macos-x64.zip`
-  `23ff9547a800d4000251a602238609e2c84b4654fc774349398d3a534acc5f85`
+- `OpenCodeWeChat-0.3.0-macos-x64.zip`
+  `待发布后补充`
 
-- `OpenCodeWeChat-0.2.0-windows-x64.zip`
-  `d3aa5f0fc854c4d7beab312c6e7b1b460721f206ce01a1609b2d75194f91c756`
+- `OpenCodeWeChat-0.3.0-windows-x64.zip`
+  `待发布后补充`
 
 ## 快速上手
 

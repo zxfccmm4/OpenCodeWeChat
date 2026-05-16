@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 
 export const CHANNEL_NAME = "wechat";
-export const CHANNEL_VERSION = "0.2.0";
+export const CHANNEL_VERSION = "0.3.0";
 export const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";
 export const BOT_TYPE = "3";
 

@@ -40,7 +40,7 @@ opencode agent list
 推荐使用源码包部署：
 
 ```bash
-opencode-wechat-0.2.0.tar.gz
+opencode-wechat-0.3.0.tar.gz
 ```
 
 源码包通常包含：
@@ -65,7 +65,7 @@ opencode-wechat-0.2.0.tar.gz
 ```bash
 sudo mkdir -p /opt/opencode-wechat
 sudo chown "$USER" /opt/opencode-wechat
-tar -xzf opencode-wechat-0.2.0.tar.gz -C /opt/opencode-wechat --strip-components=1
+tar -xzf opencode-wechat-0.3.0.tar.gz -C /opt/opencode-wechat --strip-components=1
 cd /opt/opencode-wechat
 bun install --frozen-lockfile
 bun run typecheck
@@ -348,7 +348,7 @@ cp -a ~/.claude/channels/wechat ~/.claude/channels/wechat.backup.$(date +%Y%m%d%
 
 ```bash
 cd /opt/opencode-wechat
-tar -xzf /path/to/opencode-wechat-0.2.0.tar.gz -C /opt/opencode-wechat --strip-components=1
+tar -xzf /path/to/opencode-wechat-0.3.0.tar.gz -C /opt/opencode-wechat --strip-components=1
 bun install --frozen-lockfile
 bun run typecheck
 ```

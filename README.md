@@ -298,7 +298,7 @@ OpenCodeWeChat/
 ## 部署与发布
 
 - 源码部署、`launchd`、`systemd` 方案见 [DEPLOYMENT.md](DEPLOYMENT.md)
-- 当前 release 说明见 [RELEASE-v0.2.0.md](RELEASE-v0.2.0.md)
+- 当前 release 说明见 [RELEASE-v0.3.0.md](RELEASE-v0.3.0.md)
 
 ## License
 
