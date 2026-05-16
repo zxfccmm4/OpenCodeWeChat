@@ -1,6 +1,6 @@
 # OpenCodeWeChat
 
-通过微信官方 ClawBot ilink API，把微信消息桥接到本地 OpenCode 会话，让你直接在微信里和 OpenCode / OMO 对话。
+把微信变成 OpenCode / OMO 的移动入口：通过微信官方 ClawBot ilink API，把微信消息桥接到本地 OpenCode 会话，让你直接在微信里发起对话、规划任务和触发 OMO 工作流。
 
 ## 效果预览
 
