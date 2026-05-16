@@ -1,6 +1,14 @@
 # OpenCodeWeChat
 
-把微信变成 OpenCode / OMO 的移动入口：通过微信官方 ClawBot ilink API，把微信消息桥接到本地 OpenCode 会话，让你直接在微信里发起对话、规划任务和触发 OMO 工作流。
+把微信变成 OpenCode / OMO 的移动入口。
+
+OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到本地 OpenCode 会话，让你直接在微信里发起对话、规划任务、续跑计划，并触发 OMO 工作流。
+
+适合这样的场景：
+
+- 想把 OpenCode / OMO 从终端带到微信里随时可用
+- 想在微信里直接发 `#plan`、`#start`、`#ulw` 这类 OMO 指令
+- 想要比纯 demo 更可靠的消息桥接：支持游标保护、消息去重和 `context_token` 回退
 
 ## 效果预览
 
