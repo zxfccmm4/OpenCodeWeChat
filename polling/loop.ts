@@ -1,17 +1,45 @@
-import { getUpdates, sendTextMessage } from "../api/ilink";
+import { generateClientId, getUpdates, sendTextMessage } from "../api/ilink";
+import { cacheContextToken, getCachedContextToken } from "../core/context-token";
 import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
 import { parseMessage } from "../core/message";
 import {
-  CHANNEL_NAME,
   CHANNEL_VERSION,
   MAX_CONSECUTIVE_FAILURES,
   BACKOFF_DELAY_MS,
+  ENABLE_VERBOSE_MESSAGE_LOGS,
   RETRY_DELAY_MS,
   MAX_MESSAGE_TEXT_LEN,
 } from "../config";
 import type { AccountData } from "../types/wechat";
+import type { GetUpdatesResp } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
 import { sendPrompt } from "../opencode/client";
+import {
+  hasProcessedMessage,
+  markMessageProcessed,
+} from "../storage/processed-messages";
+
+type ProcessUpdateBatchDeps = {
+  cacheContextToken: typeof cacheContextToken;
+  generateClientId: typeof generateClientId;
+  getCachedContextToken: typeof getCachedContextToken;
+  hasProcessedMessage: typeof hasProcessedMessage;
+  markMessageProcessed: typeof markMessageProcessed;
+  saveSyncBuffer: typeof saveSyncBuffer;
+  sendPrompt: typeof sendPrompt;
+  sendTextMessage: typeof sendTextMessage;
+};
+
+const DEFAULT_BATCH_DEPS: ProcessUpdateBatchDeps = {
+  cacheContextToken,
+  generateClientId,
+  getCachedContextToken,
+  hasProcessedMessage,
+  markMessageProcessed,
+  saveSyncBuffer,
+  sendPrompt,
+  sendTextMessage,
+};
 
 function log(msg: string) {
   process.stderr.write(`[polling] ${msg}\n`);
@@ -19,6 +47,103 @@ function log(msg: string) {
 
 function logError(msg: string) {
   process.stderr.write(`[polling] ERROR: ${msg}\n`);
+}
+
+function summarizeMessage(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length > MAX_MESSAGE_TEXT_LEN
+    ? `${normalized.slice(0, MAX_MESSAGE_TEXT_LEN)}...`
+    : normalized;
+}
+
+function describeError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+export async function processUpdateBatch(params: {
+  account: AccountData;
+  currentUpdatesBuf: string;
+  deps?: ProcessUpdateBatchDeps;
+  opencode: OpencodeSession;
+  response: GetUpdatesResp;
+}): Promise<{ batchSucceeded: boolean; getUpdatesBuf: string }> {
+  const {
+    account,
+    currentUpdatesBuf,
+    deps = DEFAULT_BATCH_DEPS,
+    opencode,
+    response,
+  } = params;
+  const { baseUrl, token } = account;
+  const nextUpdatesBuf = response.get_updates_buf || currentUpdatesBuf;
+  let batchSucceeded = true;
+
+  for (const msg of response.msgs ?? []) {
+    const parsed = parseMessage(msg);
+    if (!parsed) continue;
+
+    if (deps.hasProcessedMessage(parsed.dedupeKey)) {
+      log(`跳过已处理消息: from=${parsed.senderId}`);
+      continue;
+    }
+
+    if (parsed.contextToken) {
+      deps.cacheContextToken(parsed.senderId, parsed.contextToken);
+    }
+
+    log(
+      ENABLE_VERBOSE_MESSAGE_LOGS
+        ? `收到消息: from=${parsed.senderId} summary=${summarizeMessage(parsed.text)}`
+        : `收到消息: from=${parsed.senderId} chars=${parsed.text.length}`,
+    );
+
+    try {
+      log("发送至 OpenCode...");
+      const responseText = await deps.sendPrompt(opencode, parsed.text);
+      const contextToken = parsed.contextToken || deps.getCachedContextToken(parsed.senderId);
+      if (!responseText) {
+        log("OpenCode 返回空响应，跳过发送");
+        continue;
+      }
+      if (!contextToken) {
+        logError(`缺少 context_token，无法回复用户 ${parsed.senderId}`);
+        continue;
+      }
+
+      await deps.sendTextMessage(
+        baseUrl,
+        token,
+        parsed.senderId,
+        responseText,
+        contextToken,
+        deps.generateClientId(),
+        CHANNEL_VERSION,
+      );
+      log("已发送回复");
+      deps.markMessageProcessed(parsed.dedupeKey);
+    } catch (err) {
+      batchSucceeded = false;
+      logError(`OpenCode 处理失败: ${describeError(err)}`);
+      break;
+    }
+  }
+
+  if (batchSucceeded && nextUpdatesBuf !== currentUpdatesBuf) {
+    deps.saveSyncBuffer(nextUpdatesBuf);
+    return {
+      batchSucceeded,
+      getUpdatesBuf: nextUpdatesBuf,
+    };
+  }
+
+  if (!batchSucceeded) {
+    log("本批次未完整处理，保留旧同步游标以便重试");
+  }
+
+  return {
+    batchSucceeded,
+    getUpdatesBuf: currentUpdatesBuf,
+  };
 }
 
 export async function startPolling(
@@ -62,43 +187,16 @@ export async function startPolling(
 
       consecutiveFailures = 0;
 
-      if (resp.get_updates_buf) {
-        getUpdatesBuf = resp.get_updates_buf;
-        saveSyncBuffer(getUpdatesBuf);
-      }
-
-      for (const msg of resp.msgs ?? []) {
-        const parsed = parseMessage(msg);
-        if (!parsed) continue;
-
-        log(
-          `收到消息: from=${parsed.senderId} text=${parsed.text.slice(0, MAX_MESSAGE_TEXT_LEN)}...`,
-        );
-
-        try {
-          log(`发送至 OpenCode...`);
-          const response = await sendPrompt(opencode, parsed.text);
-          log(`OpenCode 响应: ${response.slice(0, MAX_MESSAGE_TEXT_LEN)}...`);
-
-          if (parsed.contextToken && response) {
-            await sendTextMessage(
-              baseUrl,
-              token,
-              parsed.senderId,
-              response,
-              parsed.contextToken,
-              `opencode-wechat:${Date.now()}`,
-              CHANNEL_VERSION,
-            );
-            log("已发送回复");
-          }
-        } catch (err) {
-          logError(`OpenCode 处理失败: ${String(err)}`);
-        }
-      }
+      const result = await processUpdateBatch({
+        account,
+        currentUpdatesBuf: getUpdatesBuf,
+        opencode,
+        response: resp,
+      });
+      getUpdatesBuf = result.getUpdatesBuf;
     } catch (err) {
       consecutiveFailures++;
-      logError(`轮询异常: ${String(err)}`);
+      logError(`轮询异常: ${describeError(err)}`);
       await sleep(
         consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
           ? BACKOFF_DELAY_MS

@@ -22,6 +22,8 @@ opencode-wechat-0.2.0.tar.gz
 ```bash
 ~/.claude/channels/wechat/account.json
 ~/.claude/channels/wechat/sync_buf.txt
+~/.claude/channels/wechat/context_tokens.json
+~/.claude/channels/wechat/processed_messages.json
 ```
 
 ## 2. 服务器要求
@@ -111,6 +113,12 @@ OPENCODE_AGENT=omo bun index.ts
 ```
 
 `OPENCODE_AGENT=omo` 会自动解析为 OpenCode 注册的 `Sisyphus - Ultraworker`。通常不要同时设置 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，让 OMO 按自身 agent 配置选择模型。
+
+默认日志不会记录聊天正文。如果需要临时排障，可在启动前附加：
+
+```bash
+OPENCODE_WECHAT_VERBOSE_LOGS=1 bun index.ts
+```
 
 如果确实要固定模型，可以使用：
 
@@ -252,7 +260,7 @@ hello
 ```text
 [polling] 收到消息
 [polling] 发送至 OpenCode...
-[opencode] 响应:
+[opencode] 收到响应
 [polling] 已发送回复
 ```
 
@@ -319,17 +327,28 @@ OPENCODE_AGENT=omo
 [polling] 已发送回复
 ```
 
-如果只有 `OpenCode 响应` 但没有 `已发送回复`，通常是入站消息没有 `context_token` 或 ilink `sendmessage` 失败。
+如果出现了：
+
+```text
+[opencode] 收到响应
+```
+
+但没有 `已发送回复`，通常是以下几种情况：
+
+- 入站消息缺少可用的 `context_token`，且本地缓存里也没有该用户最近的 token
+- ilink `sendmessage` 请求失败
+- 当前批次后续消息处理失败，游标被故意保留等待重试
 
 ### 重启后重复或漏消息
 
-同步状态保存在：
+同步和去重状态保存在：
 
 ```bash
 ~/.claude/channels/wechat/sync_buf.txt
+~/.claude/channels/wechat/processed_messages.json
 ```
 
-一般不要手动删除。只有在明确需要重新同步时才删除它。
+一般不要手动删除。只有在明确需要重新同步或清空去重状态时才处理这些文件。
 
 ### 避免多个实例同时运行
 

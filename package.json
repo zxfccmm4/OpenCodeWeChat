@@ -7,6 +7,7 @@
   "scripts": {
     "setup": "bun setup.ts",
     "start": "bun index.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit",
     "package:current": "bun scripts/package-app.ts",
     "package:mac": "bun scripts/package-app.ts --target macos-arm64 --target macos-x64",

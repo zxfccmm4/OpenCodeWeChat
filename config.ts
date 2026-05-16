@@ -22,6 +22,7 @@ export const CREDENTIALS_DIR = path.join(
   CHANNEL_NAME,
 );
 export const CREDENTIALS_FILE = path.join(CREDENTIALS_DIR, "account.json");
+export const PROCESSED_MESSAGES_FILE = path.join(CREDENTIALS_DIR, "processed_messages.json");
 export const SYNC_BUFFER_FILE = path.join(CREDENTIALS_DIR, "sync_buf.txt");
 
 // Timing
@@ -32,3 +33,4 @@ export const MAX_CONSECUTIVE_FAILURES = 3;
 export const BACKOFF_DELAY_MS = 30_000;
 export const RETRY_DELAY_MS = 2_000;
 export const MAX_MESSAGE_TEXT_LEN = 200;
+export const ENABLE_VERBOSE_MESSAGE_LOGS = process.env.OPENCODE_WECHAT_VERBOSE_LOGS === "1";

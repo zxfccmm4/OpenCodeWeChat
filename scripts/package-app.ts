@@ -106,7 +106,9 @@ function detectDefaultTarget(): TargetKey {
   if (process.platform === "win32") {
     return "windows-x64";
   }
-  return "macos-arm64";
+  throw new Error(
+    "当前系统不支持 package:current。请在 macOS 或 Windows 上运行，或显式传入 --target。",
+  );
 }
 
 function parseArgs(argv: string[]): { targets: TargetKey[]; outputRoot: string } {

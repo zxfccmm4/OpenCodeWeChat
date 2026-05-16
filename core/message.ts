@@ -37,6 +37,7 @@ export function parseMessage(msg: WeixinMessage): ParsedMessage | null {
   const senderId = msg.from_user_id ?? "unknown";
 
   return {
+    dedupeKey: buildMessageDedupeKey(msg, senderId, text),
     senderId,
     text,
     contextToken: msg.context_token,
@@ -47,4 +48,17 @@ export function parseMessage(msg: WeixinMessage): ParsedMessage | null {
 
 export function isBotMessage(msg: WeixinMessage): boolean {
   return msg.message_type === MSG_TYPE_BOT;
+}
+
+function buildMessageDedupeKey(
+  msg: WeixinMessage,
+  senderId: string,
+  text: string,
+): string {
+  if (msg.client_id?.trim()) {
+    return `client:${msg.client_id.trim()}`;
+  }
+
+  const createdAt = msg.create_time_ms ?? 0;
+  return `fallback:${senderId}:${createdAt}:${text}`;
 }

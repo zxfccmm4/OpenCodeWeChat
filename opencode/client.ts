@@ -26,6 +26,7 @@ export interface OpencodeSession {
 }
 
 interface StartedOpencodeServer {
+  authHeader: string;
   url: string;
   close(): void;
 }
@@ -162,6 +163,7 @@ async function startOpencodeServer(): Promise<StartedOpencodeServer> {
 
       finish(() => {
         resolve({
+          authHeader: getAuthHeader(),
           url,
           close() {
             killOpencodeProcess(proc);
@@ -293,59 +295,64 @@ export async function startOpencode(): Promise<OpencodeSession> {
 
   const server = await startOpencodeServer();
 
-  process.stderr.write(`[opencode] 服务器监听 ${server.url}\n`);
+  try {
+    process.stderr.write(`[opencode] 服务器监听 ${server.url}\n`);
 
-  const authHeader = getAuthHeader();
-  const model = getModelOverride();
-  const agent = await resolveAgentOverride(server.url, authHeader);
+    const authHeader = server.authHeader;
+    const model = getModelOverride();
+    const agent = await resolveAgentOverride(server.url, authHeader);
 
-  const response = await fetch(`${server.url}/session`, {
-    method: "POST",
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({}),
-  });
+    const response = await fetch(`${server.url}/session`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
 
-  if (!response.ok) {
-    const details = await readErrorDetails(response);
-    throw new Error(
-      `创建会话失败: ${response.status}${details ? `: ${details}` : ""}`,
-    );
+    if (!response.ok) {
+      const details = await readErrorDetails(response);
+      throw new Error(
+        `创建会话失败: ${response.status}${details ? `: ${details}` : ""}`,
+      );
+    }
+
+    const sessionData = await response.json() as { id: string };
+    const sessionId = sessionData.id;
+    process.stderr.write(`[opencode] 会话已创建: ${sessionId}\n`);
+    if (model) {
+      process.stderr.write(
+        `[opencode] 使用模型: ${model.providerID}/${model.modelID}\n`,
+      );
+    } else {
+      process.stderr.write("[opencode] 使用 OpenCode 默认模型\n");
+    }
+    if (agent) {
+      process.stderr.write(`[opencode] 使用 agent: ${agent}\n`);
+    }
+
+    return {
+      id: sessionId,
+      serverUrl: server.url,
+      authHeader,
+      model,
+      agent,
+      close() {
+        server.close();
+      },
+    };
+  } catch (err) {
+    server.close();
+    throw err;
   }
-
-  const sessionData = await response.json() as { id: string };
-  const sessionId = sessionData.id;
-  process.stderr.write(`[opencode] 会话已创建: ${sessionId}\n`);
-  if (model) {
-    process.stderr.write(
-      `[opencode] 使用模型: ${model.providerID}/${model.modelID}\n`,
-    );
-  } else {
-    process.stderr.write("[opencode] 使用 OpenCode 默认模型\n");
-  }
-  if (agent) {
-    process.stderr.write(`[opencode] 使用 agent: ${agent}\n`);
-  }
-
-  return {
-    id: sessionId,
-    serverUrl: server.url,
-    authHeader,
-    model,
-    agent,
-    close() {
-      server.close();
-    },
-  };
 }
 
 export async function sendPrompt(
   session: OpencodeSession,
   text: string,
 ): Promise<string> {
-  process.stderr.write(`[opencode] 发送 prompt: ${text.slice(0, 50)}...\n`);
+  process.stderr.write(`[opencode] 发送 prompt (${text.length} chars)\n`);
 
   const body: {
     parts: Array<{ type: "text"; text: string }>;
@@ -391,7 +398,7 @@ export async function sendPrompt(
   ) as Array<{ type: "text"; text: string }>;
 
   const responseText = textParts.map((p) => p.text).join("\n");
-  process.stderr.write(`[opencode] 响应: ${responseText.slice(0, 100)}...\n`);
+  process.stderr.write(`[opencode] 收到响应 (${responseText.length} chars)\n`);
 
   return responseText;
 }

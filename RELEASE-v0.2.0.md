@@ -1,19 +1,19 @@
-# OpenCodeWeChat v0.2.0 Release Draft
+# OpenCodeWeChat v0.2.0
 
-以下内容可直接用于 GitHub Release。当前下载链接按仓库 `zxfccmm4/OpenCodeWeChat` 和 tag `v0.2.0` 生成。
+OpenCodeWeChat `v0.2.0` 现已发布。这个版本重点补齐了跨平台分发与启动体验，让项目从“源码运行”进一步走向“解压即用”。
 
 ## 更新摘要
 
-- 新增跨平台一键打包能力，可直接生成 macOS Apple Silicon、macOS Intel 和 Windows x64 启动包。
-- 启动包内置独立可执行主程序、单独扫码登录工具，以及可双击启动的 `command` / `bat` 启动器，降低部署门槛。
-- 增加 `package:current`、`package:mac`、`package:win` 和 `package:all` 脚本，方便本地构建和后续发版。
-- 改进 OpenCode CLI 启动逻辑，支持自动补全常见安装路径，也支持通过 `OPENCODE_BIN` 手动指定可执行文件位置。
-- 补齐 Windows 兼容细节，凭据目录和同步缓存路径改为跨平台处理，便于在不同系统上直接运行。
-- 增加退出清理逻辑和更清晰的错误提示，双击启动时遇到 OpenCode 未安装、路径缺失或服务异常会更容易定位问题。
+- 新增一键打包能力，现可直接生成 macOS Apple Silicon、macOS Intel 和 Windows x64 三个平台的分发包。
+- 每个启动包都包含独立主程序、单独扫码登录工具，以及可双击启动的 `command` / `bat` 启动器，部署和交付都更直接。
+- 新增 `package:current`、`package:mac`、`package:win` 和 `package:all` 构建脚本，方便本地出包、测试和后续发布流程复用。
+- 优化 OpenCode CLI 启动逻辑，支持自动补全常见安装路径，也支持通过 `OPENCODE_BIN` 手动指定可执行文件位置。
+- 完善跨平台兼容处理，凭据目录和同步缓存路径已适配 Windows 与 macOS，降低不同系统下的运行差异。
+- 增强退出清理和错误提示体验，双击启动时如果遇到 OpenCode 未安装、路径缺失或服务异常，会更容易定位问题。
 
 ## 下载
 
-本次发布提供 macOS Apple Silicon、macOS Intel 和 Windows x64 三个一键启动包，解压后可直接双击启动。
+本次发布提供 macOS Apple Silicon、macOS Intel 和 Windows x64 三个一键启动包。下载后解压即可使用，首次运行时可直接通过内置登录工具完成扫码配置。
 
 - macOS Apple Silicon: [OpenCodeWeChat-0.2.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-arm64.zip) （43 MB）
 - macOS Intel: [OpenCodeWeChat-0.2.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.2.0/OpenCodeWeChat-0.2.0-macos-x64.zip) （47 MB）

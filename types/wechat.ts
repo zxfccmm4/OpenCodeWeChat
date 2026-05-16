@@ -83,6 +83,7 @@ export const MSG_STATE_FINISH = 2;
 // ── Parsed Inbound Message ───────────────────────────────────────────────────
 
 export interface ParsedMessage {
+  dedupeKey: string;
   senderId: string;
   text: string;
   contextToken: string | undefined;
