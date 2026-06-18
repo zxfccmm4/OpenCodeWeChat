@@ -5,7 +5,9 @@
  * 媒体指令作为独立媒体消息逐一发送。plan 模式下额外缓存最近计划。
  */
 import type { StreamingTextBubble } from "../core/streaming-bubble";
+import { splitTextForWechat } from "../core/text-chunks";
 import { parseWechatReplyParts } from "../core/wechat-media-directive";
+import { WECHAT_REPLY_TEXT_CHUNK_CHARS } from "../config";
 import type { OmoCommand, OmoPlanContext } from "../core/omo-command";
 import type { ParsedMessage } from "../types/wechat";
 import type { MessageProcessorDeps } from "./message-processor";
@@ -13,6 +15,29 @@ import type { ProcessorContext } from "./message-processor";
 
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+async function sendTextChunks(params: {
+  readonly baseUrl: string;
+  readonly channelVersion: string;
+  readonly chunks: readonly string[];
+  readonly contextToken: string;
+  readonly deps: MessageProcessorDeps;
+  readonly to: string;
+  readonly token: string;
+}): Promise<void> {
+  const { baseUrl, channelVersion, chunks, contextToken, deps, to, token } = params;
+  for (const chunk of chunks) {
+    await deps.sendTextMessage(
+      baseUrl,
+      token,
+      to,
+      chunk,
+      contextToken,
+      deps.generateClientId(),
+      channelVersion,
+    );
+  }
 }
 
 export async function sendReplyToUser(params: {
@@ -37,21 +62,27 @@ export async function sendReplyToUser(params: {
     .filter((part) => part.kind === "text")
     .map((part) => part.text)
     .join("\n\n");
+  const textChunks = splitTextForWechat(finalText, WECHAT_REPLY_TEXT_CHUNK_CHARS);
+  let plainTextChunks: readonly string[] = textChunks.slice(1);
+
   try {
-    await bubble.finalize(finalText);
+    await bubble.finalize(textChunks[0] ?? "");
   } catch (err) {
     ctx.logError(`流式收口失败，降级为普通消息: ${describeError(err)}`);
-    if (finalText) {
-      await deps.sendTextMessage(
-        baseUrl,
-        token,
-        parsed.senderId,
-        finalText,
-        contextToken,
-        deps.generateClientId(),
-        ctx.channelVersion,
-      );
-    }
+    plainTextChunks = textChunks;
+  }
+
+  await sendTextChunks({
+    baseUrl,
+    channelVersion: ctx.channelVersion,
+    chunks: plainTextChunks,
+    contextToken,
+    deps,
+    to: parsed.senderId,
+    token,
+  });
+  if (textChunks.length > 1) {
+    ctx.log(`长回复已分片发送: ${textChunks.length} 段 (${finalText.length} chars)`);
   }
 
   for (const part of replyParts) {

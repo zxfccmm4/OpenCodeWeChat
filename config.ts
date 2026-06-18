@@ -52,6 +52,14 @@ export const RETRY_DELAY_MS = 2_000;
 export const MAX_MESSAGE_ATTEMPTS = 3;
 export const MAX_MESSAGE_TEXT_LEN = 200;
 export const ENABLE_VERBOSE_MESSAGE_LOGS = process.env.OPENCODE_WECHAT_VERBOSE_LOGS === "1";
+const configuredReplyTextChunkChars = Number.parseInt(
+  process.env.OPENCODE_WECHAT_TEXT_CHUNK_CHARS?.trim() || "",
+  10,
+);
+export const WECHAT_REPLY_TEXT_CHUNK_CHARS = Number.isFinite(configuredReplyTextChunkChars)
+  && configuredReplyTextChunkChars > 0
+  ? configuredReplyTextChunkChars
+  : 500;
 
 // 流式回复：OpenCode 生成过程中以"同一气泡原地更新"的方式实时发往微信；设为 "0" 关闭
 export const ENABLE_STREAM_REPLIES = process.env.OPENCODE_WECHAT_STREAM_REPLIES !== "0";

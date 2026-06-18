@@ -175,6 +175,7 @@ macOS / Linux 菜单逻辑位于 `scripts/launcher.sh`，Windows 位于 `scripts
 
 - **输入中指示器**：OpenCode 处理期间，微信会显示"对方正在输入..."（官方 `sendtyping` 协议，自动续期，结束自动取消）
 - **真流式气泡**：桥接层订阅 OpenCode 的 SSE 事件流（`message.part.delta`），以同一 `client_id` 配合 `message_state=GENERATING→FINISH` 原地更新一条微信气泡——内容像元宝一样逐步增长，而不是多条分段消息。更新约 1.2 秒节流一次；媒体指令不会闪现在气泡里，推理（reasoning）内容不会泄露，媒体文件在气泡收口后作为独立消息发出
+- **长回复保底分片**：最终回复超过安全长度时，会先收口第一段气泡，再把剩余内容拆成多条文本继续发送，避免 ClawBot / 微信客户端截断尾部
 - 流式订阅不可用（如旧版 OpenCode）时回退为整段发送；流式状态被网关拒绝时自动降级为普通文本消息，内容不丢失
 
 两个开关（默认全部开启）：`OPENCODE_WECHAT_STREAM_REPLIES=0` 关闭流式，`OPENCODE_WECHAT_TYPING=0` 关闭输入中指示器。
@@ -385,6 +386,7 @@ OPENCODE_BIN=C:\Users\你的用户名\AppData\Roaming\npm\opencode.cmd
 | `OPENCODE_WECHAT_GUI_PORT` | `5179` | 可选，GUI 控制台监听端口（仅绑定 127.0.0.1） |
 | `OPENCODE_WECHAT_STREAM_REPLIES` | `1` | 设为 `0` 关闭流式分段回复，恢复整段发送 |
 | `OPENCODE_WECHAT_TYPING` | `1` | 设为 `0` 关闭微信"对方正在输入"指示器 |
+| `OPENCODE_WECHAT_TEXT_CHUNK_CHARS` | `500` | 可选，长回复最终发送时每条微信文本的最大字符数 |
 | `OPENCODE_WECHAT_VERBOSE_LOGS` | `0` | 设为 `1` 时输出消息摘要；默认只记录消息长度，避免正文落盘 |
 
 示例：

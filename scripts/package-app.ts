@@ -218,6 +218,9 @@ function buildEnvExample(targetKey: TargetKey): string {
       "# 可选：固定 provider/model",
       "# OPENCODE_PROVIDER_ID=github-copilot",
       "# OPENCODE_MODEL_ID=claude-sonnet-4.6",
+      "",
+      "# 可选：长回复最终发送时每条微信文本的最大字符数",
+      "# OPENCODE_WECHAT_TEXT_CHUNK_CHARS=500",
     ].join("\r\n");
   }
 
@@ -231,6 +234,9 @@ function buildEnvExample(targetKey: TargetKey): string {
     "# 可选：固定 provider/model",
     "# OPENCODE_PROVIDER_ID=github-copilot",
     "# OPENCODE_MODEL_ID=claude-sonnet-4.6",
+    "",
+    "# 可选：长回复最终发送时每条微信文本的最大字符数",
+    "# OPENCODE_WECHAT_TEXT_CHUNK_CHARS=500",
   ].join("\n");
 }
 
