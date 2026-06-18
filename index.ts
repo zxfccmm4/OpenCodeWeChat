@@ -3,6 +3,8 @@ import { doQRLogin } from "./login/qr";
 import { startPolling } from "./polling/loop";
 import { startOpencode } from "./opencode/client";
 import { DEFAULT_BASE_URL } from "./config";
+import { installChannelLogTee } from "./storage/channel-log";
+import { removePidFile, writePidFile } from "./storage/runtime-state";
 import type { OpencodeSession } from "./opencode/client";
 
 function log(msg: string) {
@@ -13,7 +15,6 @@ function logError(msg: string) {
   process.stderr.write(`[opencode-wechat] ERROR: ${msg}\n`);
 }
 
-let activeAccount: ReturnType<typeof loadCredentials>;
 let opencodeSession: OpencodeSession | null = null;
 let shuttingDown = false;
 
@@ -41,9 +42,15 @@ process.on("SIGTERM", () => {
 
 process.on("exit", () => {
   closeOpencodeSession();
+  removePidFile();
 });
 
 async function main() {
+  // 终端启动时把日志分流到 channel.log，GUI 日志区才能看到
+  if (installChannelLogTee()) {
+    log("通道日志同步写入 channel.log（GUI 控制台可实时查看）");
+  }
+  writePidFile();
   let account = loadCredentials();
 
   if (!account) {
@@ -57,13 +64,18 @@ async function main() {
     log(`使用已保存账号: ${account.accountId}`);
   }
 
-  activeAccount = account;
-
   log("启动 OpenCode 会话...");
   opencodeSession = await startOpencode();
   log("OpenCode 就绪");
 
-  await startPolling(account, opencodeSession);
+  await startPolling(account, opencodeSession, {
+    onSessionReplaced(session) {
+      // 轮询层在 OpenCode 服务死掉后会自动重建会话，
+      // 这里同步引用，保证退出时关闭的是当前会话
+      opencodeSession = session;
+      log("OpenCode 会话已自动重启");
+    },
+  });
 }
 
 main().catch((err) => {

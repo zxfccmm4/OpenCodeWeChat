@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenCodeWeChat 产品介绍</title>
+  <meta name="description" content="OpenCodeWeChat 把微信变成 OpenCode 与 Oh My OpenAgent 的移动入口：流式回复、双向媒体收发、图形控制台。">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8f5;
+      --ink: #17211b;
+      --muted: #5d675f;
+      --line: #dfe5dd;
+      --surface: #ffffff;
+      --soft: #eef4ec;
+      --green: #16a45d;
+      --green-dark: #087541;
+      --blue: #2e68ff;
+      --yellow: #ffd86b;
+      --shadow: 0 24px 70px rgba(22, 42, 29, 0.16);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid rgba(23, 33, 27, 0.08);
+      background: rgba(247, 248, 245, 0.88);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 70px;
+      gap: 24px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .nav-links a:hover {
+      color: var(--ink);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 76px 0 92px;
+      background:
+        linear-gradient(130deg, rgba(22, 164, 93, 0.16), transparent 42%),
+        linear-gradient(320deg, rgba(46, 104, 255, 0.13), transparent 38%),
+        var(--bg);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+      align-items: center;
+      gap: 72px;
+    }
+
+    .hero h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(48px, 6.2vw, 80px);
+      line-height: 1.02;
+      letter-spacing: 0;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+
+    .hero h1 .line {
+      display: block;
+    }
+
+    .hero-lede {
+      max-width: 650px;
+      margin: 28px 0 0;
+      color: var(--muted);
+      font-size: clamp(18px, 2.2vw, 22px);
+      line-height: 1.65;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 760;
+    }
+
+    .button.primary {
+      background: var(--ink);
+      color: #fff;
+      box-shadow: 0 14px 34px rgba(23, 33, 27, 0.18);
+    }
+
+    .button.secondary {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink);
+    }
+
+    .proof-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      max-width: 690px;
+      margin-top: 42px;
+    }
+
+    .proof {
+      border: 1px solid rgba(23, 33, 27, 0.1);
+      border-radius: 8px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .proof strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1.2;
+      font-weight: 850;
+    }
+
+    .proof span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .phone-stage {
+      position: relative;
+      min-height: 690px;
+    }
+
+    .phone {
+      position: absolute;
+      width: 285px;
+      border: 10px solid #111814;
+      border-radius: 34px;
+      overflow: hidden;
+      background: #111814;
+      box-shadow: var(--shadow);
+    }
+
+    .phone.primary-shot {
+      top: 0;
+      right: 78px;
+      transform: rotate(2deg);
+    }
+
+    .phone.secondary-shot {
+      right: 0;
+      bottom: 6px;
+      width: 245px;
+      transform: rotate(-4deg);
+      opacity: 0.96;
+    }
+
+    .phone img {
+      width: 100%;
+      aspect-ratio: 1200 / 2664;
+      object-fit: cover;
+      object-position: top;
+      border-radius: 24px;
+    }
+
+    section {
+      padding: 92px 0;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 0.82fr) minmax(280px, 0.48fr);
+      gap: 48px;
+      align-items: end;
+      margin-bottom: 44px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(34px, 4.3vw, 58px);
+      line-height: 1.05;
+      letter-spacing: 0;
+      font-weight: 840;
+      overflow-wrap: anywhere;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .feature {
+      min-height: 250px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 26px;
+      background: var(--surface);
+      box-shadow: 0 12px 34px rgba(23, 33, 27, 0.06);
+    }
+
+    .feature .num {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--soft);
+      color: var(--green-dark);
+      font-weight: 820;
+      font-size: 14px;
+    }
+
+    .feature h3 {
+      margin: 22px 0 10px;
+      font-size: 22px;
+      line-height: 1.25;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .feature p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .story {
+      background: #ffffff;
+    }
+
+    .story-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .story-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 28px;
+      background: linear-gradient(180deg, #ffffff, #f6faf5);
+      box-shadow: 0 16px 42px rgba(23, 33, 27, 0.07);
+    }
+
+    .story-card h3 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      line-height: 1.22;
+      overflow-wrap: anywhere;
+    }
+
+    .story-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .collab {
+      display: grid;
+      grid-template-columns: minmax(0, 0.58fr) minmax(0, 0.42fr);
+      gap: 34px;
+      align-items: stretch;
+    }
+
+    .collab-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .collab-row {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 20px;
+      background: var(--surface);
+    }
+
+    .collab-row strong {
+      color: var(--green-dark);
+      font-size: 15px;
+    }
+
+    .collab-row p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .reflection {
+      background:
+        linear-gradient(135deg, rgba(46, 104, 255, 0.09), transparent 44%),
+        var(--bg);
+    }
+
+    .reflection-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .reflection-card {
+      min-height: 230px;
+      border: 1px solid rgba(23, 33, 27, 0.1);
+      border-radius: 8px;
+      padding: 28px;
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .reflection-card h3 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .reflection-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .flow-band {
+      background: #111814;
+      color: #f5fff8;
+    }
+
+    .flow-band .section-head p,
+    .flow-muted {
+      color: #a8b8ad;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 155px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 22px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .flow-step strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .flow-step span {
+      display: block;
+      margin-top: 10px;
+      color: #a8b8ad;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .command-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(320px, 0.62fr);
+      gap: 34px;
+      align-items: start;
+    }
+
+    .command-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .command {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px 20px;
+      background: var(--surface);
+    }
+
+    code {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      max-width: 100%;
+      border-radius: 6px;
+      padding: 4px 7px;
+      background: #edf1ee;
+      color: #0b5d35;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      font-weight: 760;
+      overflow-wrap: anywhere;
+    }
+
+    .command p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .terminal-card {
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0d1210;
+      color: #dff8e8;
+      box-shadow: var(--shadow);
+    }
+
+    .terminal-top {
+      display: flex;
+      gap: 7px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--yellow);
+    }
+
+    .dot:nth-child(2) {
+      background: #62d87c;
+    }
+
+    .dot:nth-child(3) {
+      background: #ff6a6a;
+    }
+
+    .terminal-body {
+      padding: 22px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #dff8e8;
+      white-space: pre-wrap;
+    }
+
+    .launch {
+      background:
+        linear-gradient(90deg, rgba(22, 164, 93, 0.12), transparent 58%),
+        #fff;
+    }
+
+    .launch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .launch-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 28px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .launch-card h3 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .launch-card p {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+
+    .footer {
+      padding: 44px 0 60px;
+      background: #111814;
+      color: #eafff0;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      color: #a8b8ad;
+      font-size: 14px;
+    }
+
+    .footer strong {
+      color: #fff;
+    }
+
+    @media (max-width: 920px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding: 48px 0 70px;
+      }
+
+      .hero-grid,
+      .section-head,
+      .command-panel,
+      .collab,
+      .launch-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .phone-stage {
+        min-height: 610px;
+      }
+
+      .phone.primary-shot {
+        right: auto;
+        left: 24px;
+      }
+
+      .phone.secondary-shot {
+        right: 18px;
+      }
+
+      .proof-row,
+      .feature-grid,
+      .story-grid,
+      .reflection-grid,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .feature {
+        min-height: auto;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        width: min(100% - 28px, 1180px);
+      }
+
+      .hero h1 {
+        font-size: 38px;
+        line-height: 1.08;
+      }
+
+      .hero-actions,
+      .footer-inner {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+      }
+
+      .phone-stage {
+        min-height: 520px;
+        overflow: hidden;
+      }
+
+      .phone {
+        width: 218px;
+      }
+
+      .phone.secondary-shot {
+        right: -12px;
+        width: 168px;
+      }
+
+      .command {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .collab-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="shell nav-inner">
+      <a class="brand" href="#top" aria-label="OpenCodeWeChat 首页">
+        <span class="brand-mark">OC</span>
+        <span>OpenCodeWeChat</span>
+      </a>
+      <nav class="nav-links" aria-label="页面导航">
+        <a href="#features">亮点</a>
+        <a href="#problems">问题</a>
+        <a href="#workflow">流程</a>
+        <a href="#commands">OMO 指令</a>
+        <a href="#launch">一键运行</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <h1>
+            <span class="line">把微信变成</span>
+            <span class="line">OpenCode 与 OMO</span>
+            <span class="line">移动入口</span>
+          </h1>
+          <p class="hero-lede">
+            OpenCodeWeChat 通过微信官方 ClawBot ilink API，把你的微信消息桥接到本地 OpenCode 会话。出门在外，也能在微信里发起规划、续跑任务、收发文件，回复像元宝一样流式增长。
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#launch">查看一键运行方式</a>
+            <a class="button secondary" href="#commands">了解 OMO 指令</a>
+          </div>
+          <div class="proof-row" aria-label="产品关键指标">
+            <div class="proof">
+              <strong>微信即入口</strong>
+              <span>聊天界面直接发起 AI 开发任务，文件、图片发过去就能处理。</span>
+            </div>
+            <div class="proof">
+              <strong>真流式回复</strong>
+              <span>"对方正在输入..." + 单条气泡原地增长，长任务不再干等。</span>
+            </div>
+            <div class="proof">
+              <strong>本地 OpenCode</strong>
+              <span>自动拉起本机 OpenCode 服务，故障自愈，延续本地工具链。</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="phone-stage" aria-label="微信对话截图">
+          <figure class="phone primary-shot">
+            <img src="wechat_1.jpg" alt="OpenCodeWeChat 在微信中的对话效果截图">
+          </figure>
+          <figure class="phone secondary-shot">
+            <img src="wechat_2.jpg" alt="OpenCodeWeChat 在微信中继续交互的截图">
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="shell">
+        <div class="section-head">
+          <h2>不是聊天转发器，而是可随身携带的开发入口</h2>
+          <p>它把流式回复、双向媒体收发、OpenCode 会话、Oh My OpenAgent 上下文、故障自愈和图形控制台组合成一个可日常使用的工具。</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature">
+            <span class="num">01</span>
+            <h3>手机上发起本地开发任务</h3>
+            <p>微信消息会被转成 OpenCode prompt，本机自动创建会话并返回结果。你在路上也能安排排查、规划和总结。</p>
+          </article>
+          <article class="feature">
+            <span class="num">02</span>
+            <h3>像元宝一样的流式回复</h3>
+            <p>订阅 OpenCode SSE 增量，单条微信气泡原地增长直至收口，处理期间显示"对方正在输入..."，长任务不再是干等一堵墙。</p>
+          </article>
+          <article class="feature">
+            <span class="num">03</span>
+            <h3>双向媒体收发</h3>
+            <p>把文件、图片、视频发给 ClawBot，自动下载解密到本地收件箱供 OpenCode 处理；AI 的产物文件也能上传发回微信，手机端直接下载打开。</p>
+          </article>
+          <article class="feature">
+            <span class="num">04</span>
+            <h3>内置 Oh My OpenAgent 上下文</h3>
+            <p>每次调用 OpenCode 都通过 system 字段加载 OMO、MCP、Skill 和会话规则，普通消息也会进入更完整的 agent 流程。</p>
+          </article>
+          <article class="feature">
+            <span class="num">05</span>
+            <h3>按指令智能路由 agent</h3>
+            <p>#plan 优先 Prometheus，#start 与 #delegate 优先 Atlas，#team 与 #ulw-loop 优先 Sisyphus，让意图直接对应工作流。</p>
+          </article>
+          <article class="feature">
+            <span class="num">06</span>
+            <h3>浏览器图形控制台</h3>
+            <p>双击打开本地 GUI：状态面板、启动/停止、页面内扫码登录、登出和实时日志，全程不用碰终端；另有三平台菜单启动器可选。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="problems" class="story">
+      <div class="shell">
+        <div class="section-head">
+          <h2>它解决的不是“能不能聊天”，而是 AI 开发能不能随时接上</h2>
+          <p>很多 AI 工具已经足够强，但它们常被困在桌面终端里。OpenCodeWeChat 解决的是入口、连续性和可靠性这三个更日常的问题。</p>
+        </div>
+        <div class="story-grid">
+          <article class="story-card">
+            <h3>离开电脑后，任务就断了</h3>
+            <p>灵感、问题和临时需求经常出现在路上、会议中或手机旁。把微信接到本地 OpenCode 后，用户可以先把任务发出去，让本机环境继续承接。</p>
+          </article>
+          <article class="story-card">
+            <h3>AI 有能力，但入口太重</h3>
+            <p>终端、命令、agent 名称、上下文加载都需要记忆成本。这个项目把它们压缩成微信里的普通消息和少量前缀，让复杂工作流更容易被日常使用。</p>
+          </article>
+          <article class="story-card">
+            <h3>桥接工具最怕不可靠</h3>
+            <p>OpenCode 服务死亡自动重建会话并重试，坏消息连续失败自动跳过并告知，配合游标保护、去重和 token 回退——通道挂了能自己爬起来，队列不会被堵死。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="workflow" class="flow-band">
+      <div class="shell">
+        <div class="section-head">
+          <h2>从一条微信消息，到一次本地 OpenCode 执行</h2>
+          <p>OpenCodeWeChat 保持链路清晰：微信只负责输入输出，真正的模型、工具、agent 和本地上下文仍在你的机器上运行。</p>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <strong>微信发消息</strong>
+            <span>发文本、OMO 指令，或直接发文件、图片让 AI 处理。</span>
+          </div>
+          <div class="flow-step">
+            <strong>ilink 长轮询</strong>
+            <span>拉取消息并管理同步游标与去重；媒体自动下载解密到收件箱。</span>
+          </div>
+          <div class="flow-step">
+            <strong>加载 OMO 上下文</strong>
+            <span>构造 system prompt，注入 MCP、Skill 和工作流规则。</span>
+          </div>
+          <div class="flow-step">
+            <strong>调用 OpenCode</strong>
+            <span>自动拉起 opencode serve，订阅 SSE 增量；服务死亡自动重建。</span>
+          </div>
+          <div class="flow-step">
+            <strong>微信流式收结果</strong>
+            <span>回复在同一气泡里原地增长直至收口，产物文件随后发回可下载。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="collaboration">
+      <div class="shell collab">
+        <div>
+          <div class="section-head" style="display:block;margin-bottom:28px">
+            <h2>我和 AI 的协作方式：人做判断，AI 做推进</h2>
+            <p style="margin-top:18px">这个产品本身就是用 AI 协作开发出来的：人负责目标、取舍和验收，AI 负责快速阅读代码、生成方案、实现改动和反复验证。</p>
+          </div>
+          <div class="collab-list">
+            <div class="collab-row"><strong>人</strong><p>定义真实需求：微信入口要能日常使用，而不是只跑通 demo。</p></div>
+            <div class="collab-row"><strong>AI</strong><p>快速梳理项目结构、OpenCode 接口变化和 Oh My OpenAgent 工作流，把变化落到代码里。</p></div>
+            <div class="collab-row"><strong>人</strong><p>纠偏产品命名和语义，明确围绕 Oh My OpenAgent / OMO 的真实流程。</p></div>
+            <div class="collab-row"><strong>AI</strong><p>补齐测试、文档、一键脚本和介绍页，并用本地渲染、类型检查、单测持续验证。</p></div>
+          </div>
+        </div>
+        <aside class="terminal-card" aria-label="人机协作摘要">
+          <div class="terminal-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="terminal-body">协作节奏：
+
+1. 人提出场景和约束
+2. AI 阅读代码并形成实现路径
+3. AI 小步修改并验证
+4. 人指出语义偏差或体验目标
+5. AI 修正并沉淀为文档、脚本和测试
+
+结果：
+需求没有停留在想法里，而是变成可运行、可展示、可继续迭代的产品。</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="commands">
+      <div class="shell command-panel">
+        <div>
+          <div class="section-head" style="display:block;margin-bottom:28px">
+            <h2>用短前缀触发 OMO 工作流</h2>
+            <p style="margin-top:18px">你不需要在微信里操作复杂面板，只要在消息前加一个轻量前缀，就能把意图映射到更合适的 Oh My OpenAgent 协作模式。</p>
+          </div>
+          <div class="command-list">
+            <div class="command"><code>#plan</code><p>先由 Prometheus 风格拆解任务、识别歧义、输出计划。</p></div>
+            <div class="command"><code>#start</code><p>沿着最近一次 #plan 缓存继续执行，适合续跑计划。</p></div>
+            <div class="command"><code>#team</code><p>请求多成员协作、并行调查和最终汇总。</p></div>
+            <div class="command"><code>#ulw</code><p>进入 ultrawork，全自动推进排查、实现与验证。</p></div>
+            <div class="command"><code>#hyperplan</code><p>面向复杂任务生成结构化计划、关键假设和验证点。</p></div>
+            <div class="command"><code>#review</code><p>以代码评审视角优先找 bug、回归风险和缺失测试。</p></div>
+          </div>
+        </div>
+        <aside class="terminal-card" aria-label="命令示例">
+          <div class="terminal-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="terminal-body">微信里发送：
+
+#plan 帮我给这个需求拆一个实现计划
+#start 按刚才的计划继续做
+#team 分头查这个回归，最后合并结论
+#ulw 直接把这个问题从排查到修复都做完
+
+桥接层自动选择可用 agent：
+Prometheus / Atlas / Sisyphus / Oracle</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="reflection" class="reflection">
+      <div class="shell">
+        <div class="section-head">
+          <h2>心得体会：AI 产品的价值，往往藏在最后一公里</h2>
+          <p>做完这个项目之后，最明显的感受是：模型能力不是唯一瓶颈。真正影响使用频率的，是入口够不够轻、上下文能不能持续、工具链是否可靠。</p>
+        </div>
+        <div class="reflection-grid">
+          <article class="reflection-card">
+            <h3>好的 AI 工具要贴近人的工作流</h3>
+            <p>开发者不可能永远坐在终端前。把 OpenCode 和 OMO 接到微信，本质上是在把 AI 能力放到人已经熟悉的沟通入口里。</p>
+          </article>
+          <article class="reflection-card">
+            <h3>协作不是让 AI 代替判断</h3>
+            <p>人仍然要决定方向、优先级和质量标准。AI 最适合承担大量探索、改代码、补测试、写文档和重复验证的工作。</p>
+          </article>
+          <article class="reflection-card">
+            <h3>可靠性比炫技更重要</h3>
+            <p>游标、去重、登录、跨平台启动这些细节不显眼，但它们决定产品是否能被持续使用。真正的亮点，是让复杂系统变得稳定可用。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="launch" class="launch">
+      <div class="shell">
+        <div class="section-head">
+          <h2>从源码到日常使用，都尽量一键化</h2>
+          <p>开发者可以直接从源码运行，也可以生成面向 macOS 与 Windows 的一键启动包，交付给不想碰命令行的人。</p>
+        </div>
+        <div class="launch-grid">
+          <article class="launch-card">
+            <h3>浏览器图形控制台</h3>
+            <p>macOS 双击 OpenCodeWeChatGUI.command，Windows 双击 OpenCodeWeChatGUI.cmd，Linux 运行 OpenCodeWeChatGUI.sh。浏览器自动打开：扫码登录、启停通道、实时日志一站搞定。</p>
+            <code>./OpenCodeWeChatGUI.command</code>
+          </article>
+          <article class="launch-card">
+            <h3>三平台菜单启动器</h3>
+            <p>偏好终端的话，菜单式启动器覆盖登录、登出、启动、停止和打开 GUI 五个动作，macOS / Windows / Linux 全平台同款体验。</p>
+            <code>./OpenCodeWeChatLauncher.command</code>
+          </article>
+          <article class="launch-card">
+            <h3>发布包一键分发</h3>
+            <p>通过 package 脚本生成 macOS Apple Silicon、macOS Intel 与 Windows x64 启动包，包含主程序、登录工具、图形控制台和环境配置模板。</p>
+            <code>bun run package:all</code>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell footer-inner">
+      <div><strong>OpenCodeWeChat</strong> · WeChat gateway for OpenCode and Oh My OpenAgent</div>
+      <div>为移动场景、远程值守和随时发起开发任务而设计。</div>
+    </div>
+  </footer>
+</body>
+</html>

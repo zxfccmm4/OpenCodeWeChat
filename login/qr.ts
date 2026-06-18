@@ -59,22 +59,35 @@ export async function doQRLogin(baseUrl?: string): Promise<AccountData | null> {
   return null;
 }
 
-function confirmLogin(
+/**
+ * 从已确认的扫码状态构造账号数据（不落盘）。GUI 和终端登录共用。
+ */
+export function buildAccountFromStatus(
   status: QRStatusResponse,
   baseUrl: string,
 ): AccountData | null {
   if (!status.ilink_bot_id || !status.bot_token) {
-    log("登录确认但未返回 bot 信息");
     return null;
   }
 
-  const account: AccountData = {
+  return {
     token: status.bot_token,
     baseUrl: status.baseurl || baseUrl,
     accountId: status.ilink_bot_id,
     userId: status.ilink_user_id,
     savedAt: new Date().toISOString(),
   };
+}
+
+function confirmLogin(
+  status: QRStatusResponse,
+  baseUrl: string,
+): AccountData | null {
+  const account = buildAccountFromStatus(status, baseUrl);
+  if (!account) {
+    log("登录确认但未返回 bot 信息");
+    return null;
+  }
 
   saveCredentials(account);
   log("微信连接成功！");

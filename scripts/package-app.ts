@@ -12,7 +12,10 @@ interface PackageTarget {
   directoryName: string;
   displayName: string;
   executableName: string;
+  guiExecutableName: string;
+  guiLauncherName: string;
   setupExecutableName: string;
+  stopLauncherName: string;
   launcherName: string;
   setupLauncherName: string;
   readmeName: string;
@@ -36,7 +39,10 @@ const TARGETS: Record<TargetKey, PackageTarget> = {
     directoryName: `OpenCodeWeChat-${CHANNEL_VERSION}-macos-arm64`,
     displayName: "macOS Apple Silicon",
     executableName: "OpenCodeWeChat",
+    guiExecutableName: "OpenCodeWeChat-GUI",
+    guiLauncherName: "OpenCodeWeChat GUI.command",
     setupExecutableName: "OpenCodeWeChat-Setup",
+    stopLauncherName: "Stop OpenCodeWeChat.command",
     launcherName: "OpenCodeWeChat.command",
     setupLauncherName: "Login WeChat.command",
     readmeName: "README.txt",
@@ -48,7 +54,10 @@ const TARGETS: Record<TargetKey, PackageTarget> = {
     directoryName: `OpenCodeWeChat-${CHANNEL_VERSION}-macos-x64`,
     displayName: "macOS Intel",
     executableName: "OpenCodeWeChat",
+    guiExecutableName: "OpenCodeWeChat-GUI",
+    guiLauncherName: "OpenCodeWeChat GUI.command",
     setupExecutableName: "OpenCodeWeChat-Setup",
+    stopLauncherName: "Stop OpenCodeWeChat.command",
     launcherName: "OpenCodeWeChat.command",
     setupLauncherName: "Login WeChat.command",
     readmeName: "README.txt",
@@ -60,7 +69,10 @@ const TARGETS: Record<TargetKey, PackageTarget> = {
     directoryName: `OpenCodeWeChat-${CHANNEL_VERSION}-windows-x64`,
     displayName: "Windows x64",
     executableName: "OpenCodeWeChat.exe",
+    guiExecutableName: "OpenCodeWeChat-GUI.exe",
+    guiLauncherName: "OpenCodeWeChat GUI.bat",
     setupExecutableName: "OpenCodeWeChat-Setup.exe",
+    stopLauncherName: "Stop OpenCodeWeChat.bat",
     launcherName: "OpenCodeWeChat.bat",
     setupLauncherName: "Login WeChat.bat",
     readmeName: "README.txt",
@@ -200,6 +212,7 @@ function buildEnvExample(targetKey: TargetKey): string {
       "# OPENCODE_AGENT=omo",
       "",
       "# 可选：指定 OpenCode CLI 的绝对路径",
+      "# OPENCODE_BIN=C:\\Users\\你的用户名\\AppData\\Roaming\\npm\\opencode.cmd",
       "# OPENCODE_BIN=C:\\Users\\你的用户名\\AppData\\Local\\Programs\\OpenCode\\bin\\opencode.cmd",
       "",
       "# 可选：固定 provider/model",
@@ -224,6 +237,7 @@ function buildEnvExample(targetKey: TargetKey): string {
 function buildReadme(target: PackageTarget, targetKey: TargetKey): string {
   const launcher = target.launcherName;
   const setupLauncher = target.setupLauncherName;
+  const stopLauncher = target.stopLauncherName;
   const credentialsPath = targetKey === "windows-x64"
     ? "%USERPROFILE%\\.claude\\channels\\wechat"
     : "~/.claude/channels/wechat";
@@ -234,10 +248,12 @@ function buildReadme(target: PackageTarget, targetKey: TargetKey): string {
     `1. 双击 ${launcher} 启动通道。`,
     "2. 如果当前机器还没有微信凭据，程序会自动显示二维码并等待扫码。",
     `3. 如果只想重新扫码登录，可以双击 ${setupLauncher}。`,
-    "4. 如需自定义 agent / model / OpenCode CLI 路径，可复制 opencode-wechat.env.example 为 opencode-wechat.env 后再启动。",
+    `4. 如果要停止正在运行的通道，可以双击 ${stopLauncher}。`,
+    `5. 推荐使用图形控制台：双击 ${target.guiLauncherName}，浏览器会自动打开，支持启动/停止/扫码登录/登出和实时日志。`,
+    "6. 如需自定义 agent / model / OpenCode CLI 路径，可复制 opencode-wechat.env.example 为 opencode-wechat.env 后再启动。",
     "",
     "运行前提：",
-    "- 已安装 OpenCode，且 `opencode` 命令可用。",
+    "- 已安装 OpenCode，且 `opencode` 命令可用。Windows 如果找不到 opencode，可在 opencode-wechat.env 设置 OPENCODE_BIN。",
     "- 已在本机完成 OpenCode 登录。",
     "",
     `凭据目录：${credentialsPath}`,
@@ -278,10 +294,46 @@ function buildMacLauncher(executableName: string): string {
   ].join("\n");
 }
 
+function buildMacStopLauncher(): string {
+  return [
+    "#!/bin/bash",
+    "PID_FILE=\"$HOME/.claude/channels/wechat/opencode-wechat.pid\"",
+    "",
+    "if [ ! -f \"$PID_FILE\" ]; then",
+    "  echo \"未找到运行中的 OpenCodeWeChat。\"",
+    "  read -r -p \"按回车关闭窗口...\" _",
+    "  exit 0",
+    "fi",
+    "",
+    "PID=\"$(tr -d '[:space:]' < \"$PID_FILE\")\"",
+    "",
+    "if [ -z \"$PID\" ] || ! kill -0 \"$PID\" >/dev/null 2>&1; then",
+    "  rm -f \"$PID_FILE\"",
+    "  echo \"OpenCodeWeChat 未运行，已清理旧 pid 文件。\"",
+    "  read -r -p \"按回车关闭窗口...\" _",
+    "  exit 0",
+    "fi",
+    "",
+    "echo \"正在停止 OpenCodeWeChat (pid=$PID)...\"",
+    "kill \"$PID\"",
+    "sleep 2",
+    "",
+    "if kill -0 \"$PID\" >/dev/null 2>&1; then",
+    "  echo \"进程仍在运行，强制结束...\"",
+    "  kill -9 \"$PID\" >/dev/null 2>&1 || true",
+    "fi",
+    "",
+    "rm -f \"$PID_FILE\"",
+    "echo \"已停止 OpenCodeWeChat。\"",
+    "read -r -p \"按回车关闭窗口...\" _",
+  ].join("\n");
+}
+
 function buildWindowsLauncher(executableName: string): string {
   return [
     "@echo off",
     "setlocal",
+    "chcp 65001 >nul",
     "cd /d \"%~dp0\"",
     "",
     "if exist \"%~dp0opencode-wechat.env\" (",
@@ -290,7 +342,7 @@ function buildWindowsLauncher(executableName: string): string {
     "  )",
     ")",
     "",
-    "set \"PATH=%LOCALAPPDATA%\\Programs\\OpenCode\\bin;%LOCALAPPDATA%\\Programs\\OpenCode;%ProgramFiles%\\OpenCode\\bin;%ProgramFiles%\\OpenCode;%ProgramFiles(x86)%\\OpenCode\\bin;%ProgramFiles(x86)%\\OpenCode;%PATH%\"",
+    "set \"PATH=%LOCALAPPDATA%\\Programs\\OpenCode\\bin;%LOCALAPPDATA%\\Programs\\OpenCode;%USERPROFILE%\\AppData\\Roaming\\npm;%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages;%ProgramFiles%\\OpenCode\\bin;%ProgramFiles%\\OpenCode;%ProgramFiles(x86)%\\OpenCode\\bin;%ProgramFiles(x86)%\\OpenCode;%PATH%\"",
     "",
     "echo OpenCodeWeChat",
     "echo.",
@@ -305,6 +357,52 @@ function buildWindowsLauncher(executableName: string): string {
     "echo.",
     "pause",
     "exit /b %EXIT_CODE%",
+  ].join("\r\n");
+}
+
+function buildWindowsStopLauncher(): string {
+  return [
+    "@echo off",
+    "setlocal",
+    "chcp 65001 >nul",
+    "",
+    "set \"PID_FILE=%USERPROFILE%\\.claude\\channels\\wechat\\opencode-wechat.pid\"",
+    "",
+    "if not exist \"%PID_FILE%\" (",
+    "  echo 未找到运行中的 OpenCodeWeChat。",
+    "  pause",
+    "  exit /b 0",
+    ")",
+    "",
+    "set /p PID=<\"%PID_FILE%\"",
+    "if \"%PID%\"==\"\" (",
+    "  del \"%PID_FILE%\" >nul 2>nul",
+    "  echo OpenCodeWeChat 未运行，已清理旧 pid 文件。",
+    "  pause",
+    "  exit /b 0",
+    ")",
+    "",
+    "tasklist /fi \"PID eq %PID%\" | findstr /c:\"%PID%\" >nul",
+    "if errorlevel 1 (",
+    "  del \"%PID_FILE%\" >nul 2>nul",
+    "  echo OpenCodeWeChat 未运行，已清理旧 pid 文件。",
+    "  pause",
+    "  exit /b 0",
+    ")",
+    "",
+    "echo 正在停止 OpenCodeWeChat (pid=%PID%)...",
+    "taskkill /pid %PID% /t >nul 2>nul",
+    "timeout /t 2 /nobreak >nul",
+    "tasklist /fi \"PID eq %PID%\" | findstr /c:\"%PID%\" >nul",
+    "if not errorlevel 1 (",
+    "  echo 进程仍在运行，强制结束...",
+    "  taskkill /pid %PID% /t /f >nul 2>nul",
+    ")",
+    "",
+    "del \"%PID_FILE%\" >nul 2>nul",
+    "echo 已停止 OpenCodeWeChat。",
+    "pause",
+    "endlocal",
   ].join("\r\n");
 }
 
@@ -328,6 +426,11 @@ function prepareTarget(targetKey: TargetKey, outputRoot: string) {
     "setup.ts",
     path.join(binDir, target.setupExecutableName),
   );
+  compileExecutable(
+    target,
+    "gui/server.ts",
+    path.join(binDir, target.guiExecutableName),
+  );
 
   writeFile(
     path.join(packageDir, target.readmeName),
@@ -347,6 +450,14 @@ function prepareTarget(targetKey: TargetKey, outputRoot: string) {
       path.join(packageDir, target.setupLauncherName),
       buildWindowsLauncher(target.setupExecutableName),
     );
+    writeFile(
+      path.join(packageDir, target.guiLauncherName),
+      buildWindowsLauncher(target.guiExecutableName),
+    );
+    writeFile(
+      path.join(packageDir, target.stopLauncherName),
+      buildWindowsStopLauncher(),
+    );
   } else {
     writeFile(
       path.join(packageDir, target.launcherName),
@@ -356,6 +467,16 @@ function prepareTarget(targetKey: TargetKey, outputRoot: string) {
     writeFile(
       path.join(packageDir, target.setupLauncherName),
       buildMacLauncher(target.setupExecutableName),
+      0o755,
+    );
+    writeFile(
+      path.join(packageDir, target.guiLauncherName),
+      buildMacLauncher(target.guiExecutableName),
+      0o755,
+    );
+    writeFile(
+      path.join(packageDir, target.stopLauncherName),
+      buildMacStopLauncher(),
       0o755,
     );
   }

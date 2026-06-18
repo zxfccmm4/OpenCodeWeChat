@@ -1,8 +1,7 @@
 import fs from "node:fs";
-import path from "node:path";
-import { CREDENTIALS_DIR } from "../config.js";
+import { CONTEXT_TOKENS_FILE, CREDENTIALS_DIR } from "../config.js";
 
-const CONTEXT_TOKEN_FILE = path.join(CREDENTIALS_DIR, "context_tokens.json");
+const CONTEXT_TOKEN_FILE = CONTEXT_TOKENS_FILE;
 const cache = new Map<string, string>();
 let loaded = false;
 

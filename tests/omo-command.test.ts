@@ -54,6 +54,24 @@ describe("parseOmoCommand", () => {
     });
   });
 
+  test("parses current OMO keyword commands", () => {
+    expect(parseOmoCommand("#team 并行调查")).toEqual({
+      body: "并行调查",
+      mode: "team",
+      rawTag: "#team",
+    });
+    expect(parseOmoCommand("#hyperplan 设计路线")).toEqual({
+      body: "设计路线",
+      mode: "hyperplan",
+      rawTag: "#hyperplan",
+    });
+    expect(parseOmoCommand("#ulw-loop 持续推进")).toEqual({
+      body: "持续推进",
+      mode: "ulw-loop",
+      rawTag: "#ulw-loop",
+    });
+  });
+
   test("parses #review and #summary commands", () => {
     expect(parseOmoCommand("#review 看看这次改动")).toEqual({
       body: "看看这次改动",
@@ -116,6 +134,14 @@ describe("buildOmoPrompt", () => {
     const prompt = buildOmoPrompt("#start 按刚才的计划继续");
     expect(prompt).toContain("微信侧指令: #start (映射到 Atlas / /start-work)");
     expect(prompt).toContain("用户显式要求 Atlas 执行最新计划。");
+  });
+
+  test("maps current OMO workflow prompts", () => {
+    expect(buildOmoPrompt("#team 并行查一下")).toContain("映射到 OMO team mode");
+    expect(buildOmoPrompt("#hyperplan 做一个方案")).toContain("hyperplan / hyperplan-ultrawork");
+    expect(buildOmoPrompt("#search 查资料")).toContain("Librarian / Explore");
+    expect(buildOmoPrompt("#analyze 看根因")).toContain("Metis / Oracle 分析");
+    expect(buildOmoPrompt("#ulw-loop 继续循环")).toContain("/ulw-loop / Ralph loop");
   });
 
   test("injects the latest cached plan into #start prompts", () => {

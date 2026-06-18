@@ -1,57 +1,89 @@
-import { generateClientId, getUpdates, sendTextMessage } from "../api/ilink";
+/**
+ * 微信消息长轮询编排层。
+ *
+ * 职责：调用 getUpdates 拉取一批消息，逐条交给 message-processor 处理，
+ * 根据处理结果推进或保留同步游标，并在连续失败时退避。
+ * 单条消息的完整处理逻辑位于 message-processor.ts。
+ */
+import { getUpdates } from "../api/ilink";
+import { sendMediaMessage } from "../api/media";
+import { downloadIncomingMedia } from "../api/media-download";
 import { cacheContextToken, getCachedContextToken } from "../core/context-token";
 import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
-import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
+import { startTypingIndicator } from "../core/typing-indicator";
+import {
+  generateClientId,
+  sendStreamingText,
+  sendTextMessage,
+} from "../api/ilink";
 import { parseMessage } from "../core/message";
 import {
-  CHANNEL_VERSION,
-  MAX_CONSECUTIVE_FAILURES,
   BACKOFF_DELAY_MS,
+  CHANNEL_VERSION,
+  DEFAULT_CDN_BASE_URL,
+  ENABLE_STREAM_REPLIES,
+  ENABLE_TYPING_INDICATOR,
   ENABLE_VERBOSE_MESSAGE_LOGS,
-  RETRY_DELAY_MS,
+  INBOX_DIR,
+  MAX_CONSECUTIVE_FAILURES,
+  MAX_MESSAGE_ATTEMPTS,
   MAX_MESSAGE_TEXT_LEN,
+  RETRY_DELAY_MS,
+  STREAM_UPDATE_INTERVAL_MS,
 } from "../config";
-import type { AccountData } from "../types/wechat";
-import type { GetUpdatesResp } from "../types/wechat";
+import type { AccountData, GetUpdatesResp } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
-import { sendPrompt } from "../opencode/client";
+import { restartOpencode, sendPrompt } from "../opencode/client";
+import { openReplyTextStream } from "../opencode/stream";
 import {
-  hasProcessedMessage,
-  markMessageProcessed,
-} from "../storage/processed-messages";
+  processMessage,
+  type MessageProcessorDeps,
+  type ProcessorContext,
+} from "./message-processor";
+import { resetMessageAttemptTracking } from "./retry-tracker";
+import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
 import {
   getLatestPlanContext,
   saveLatestPlanContext,
 } from "../storage/omo-plan-context";
+import {
+  hasProcessedMessage,
+  markMessageProcessed,
+} from "../storage/processed-messages";
 
-type ProcessUpdateBatchDeps = {
-  buildOmoPrompt: typeof buildOmoPrompt;
-  cacheContextToken: typeof cacheContextToken;
-  generateClientId: typeof generateClientId;
-  getCachedContextToken: typeof getCachedContextToken;
-  getLatestPlanContext: typeof getLatestPlanContext;
-  hasProcessedMessage: typeof hasProcessedMessage;
-  markMessageProcessed: typeof markMessageProcessed;
-  parseOmoCommand: typeof parseOmoCommand;
-  saveSyncBuffer: typeof saveSyncBuffer;
-  saveLatestPlanContext: typeof saveLatestPlanContext;
-  sendPrompt: typeof sendPrompt;
-  sendTextMessage: typeof sendTextMessage;
+export { resetMessageAttemptTracking };
+
+/**
+ * 依赖注入容器。测试通过 processUpdateBatch 的 deps 参数覆盖。
+ * 在 MessageProcessorDeps 基础上增加 saveSyncBuffer（批次级游标持久化）。
+ */
+export type ProcessUpdateBatchDeps = MessageProcessorDeps & {
+  readonly saveSyncBuffer: typeof saveSyncBuffer;
 };
 
 const DEFAULT_BATCH_DEPS: ProcessUpdateBatchDeps = {
   buildOmoPrompt,
   cacheContextToken,
+  downloadIncomingMedia,
   generateClientId,
   getCachedContextToken,
   getLatestPlanContext,
   hasProcessedMessage,
   markMessageProcessed,
+  openReplyStream: ENABLE_STREAM_REPLIES
+    ? (session, onText) => openReplyTextStream({ onText, session })
+    : null,
   parseOmoCommand,
-  saveSyncBuffer,
+  restartOpencode,
   saveLatestPlanContext,
+  saveSyncBuffer,
+  sendMediaMessage,
   sendPrompt,
+  sendStreamingText,
   sendTextMessage,
+  startTypingIndicator: ENABLE_TYPING_INDICATOR
+    ? startTypingIndicator
+    : async () => async () => {},
 };
 
 function log(msg: string) {
@@ -62,15 +94,23 @@ function logError(msg: string) {
   process.stderr.write(`[polling] ERROR: ${msg}\n`);
 }
 
-function summarizeMessage(text: string): string {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  return normalized.length > MAX_MESSAGE_TEXT_LEN
-    ? `${normalized.slice(0, MAX_MESSAGE_TEXT_LEN)}...`
-    : normalized;
-}
-
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function buildProcessorContext(account: AccountData): ProcessorContext {
+  return {
+    account: { baseUrl: account.baseUrl, token: account.token },
+    cdnBaseUrl: DEFAULT_CDN_BASE_URL,
+    channelVersion: CHANNEL_VERSION,
+    inboxDir: INBOX_DIR,
+    log,
+    logError,
+    maxMessageAttempts: MAX_MESSAGE_ATTEMPTS,
+    maxTextLen: MAX_MESSAGE_TEXT_LEN,
+    streamUpdateIntervalMs: STREAM_UPDATE_INTERVAL_MS,
+    verboseLogs: ENABLE_VERBOSE_MESSAGE_LOGS,
+  };
 }
 
 export async function processUpdateBatch(params: {
@@ -79,84 +119,42 @@ export async function processUpdateBatch(params: {
   deps?: ProcessUpdateBatchDeps;
   opencode: OpencodeSession;
   response: GetUpdatesResp;
-}): Promise<{ batchSucceeded: boolean; getUpdatesBuf: string }> {
+}): Promise<{
+  batchSucceeded: boolean;
+  getUpdatesBuf: string;
+  opencode: OpencodeSession;
+}> {
   const {
     account,
     currentUpdatesBuf,
     deps = DEFAULT_BATCH_DEPS,
-    opencode,
     response,
   } = params;
-  const { baseUrl, token } = account;
   const nextUpdatesBuf = response.get_updates_buf || currentUpdatesBuf;
   let batchSucceeded = true;
+  let opencode = params.opencode;
+  const ctx = buildProcessorContext(account);
 
   for (const msg of response.msgs ?? []) {
     const parsed = parseMessage(msg);
     if (!parsed) continue;
-    const omoCommand = deps.parseOmoCommand(parsed.text);
 
-    if (deps.hasProcessedMessage(parsed.dedupeKey)) {
-      log(`跳过已处理消息: from=${parsed.senderId}`);
-      continue;
+    const result = await processMessage({
+      ctx,
+      deps,
+      message: parsed,
+      opencode,
+    });
+
+    if ("opencode" in result && result.opencode) {
+      opencode = result.opencode;
     }
 
-    if (parsed.contextToken) {
-      deps.cacheContextToken(parsed.senderId, parsed.contextToken);
-    }
-
-    log(
-      ENABLE_VERBOSE_MESSAGE_LOGS
-        ? `收到消息: from=${parsed.senderId} summary=${summarizeMessage(parsed.text)}`
-        : `收到消息: from=${parsed.senderId} chars=${parsed.text.length}`,
-    );
-
-    try {
-      log("发送至 OpenCode...");
-      const compiledPrompt = deps.buildOmoPrompt(
-        parsed.text,
-        deps.getLatestPlanContext(parsed.senderId),
-      );
-      const responseText = await deps.sendPrompt(
-        opencode,
-        compiledPrompt,
-      );
-      const contextToken = parsed.contextToken || deps.getCachedContextToken(parsed.senderId);
-      if (!responseText) {
-        log("OpenCode 返回空响应，跳过发送");
-        continue;
-      }
-      if (!contextToken) {
-        logError(`缺少 context_token，无法回复用户 ${parsed.senderId}`);
-        continue;
-      }
-
-      await deps.sendTextMessage(
-        baseUrl,
-        token,
-        parsed.senderId,
-        responseText,
-        contextToken,
-        deps.generateClientId(),
-        CHANNEL_VERSION,
-      );
-      log("已发送回复");
-      if (omoCommand.mode === "plan") {
-        deps.saveLatestPlanContext(
-          {
-            originalRequest: omoCommand.body || parsed.text,
-            planResponse: responseText,
-            savedAt: new Date().toISOString(),
-          },
-          parsed.senderId,
-        );
-      }
-      deps.markMessageProcessed(parsed.dedupeKey);
-    } catch (err) {
+    if (result.status === "failed-retryable") {
       batchSucceeded = false;
-      logError(`OpenCode 处理失败: ${describeError(err)}`);
       break;
     }
+    // "processed" 和 "skipped" 都继续处理下一条
   }
 
   if (batchSucceeded && nextUpdatesBuf !== currentUpdatesBuf) {
@@ -164,6 +162,7 @@ export async function processUpdateBatch(params: {
     return {
       batchSucceeded,
       getUpdatesBuf: nextUpdatesBuf,
+      opencode,
     };
   }
 
@@ -174,15 +173,20 @@ export async function processUpdateBatch(params: {
   return {
     batchSucceeded,
     getUpdatesBuf: currentUpdatesBuf,
+    opencode,
   };
 }
 
 export async function startPolling(
   account: AccountData,
   opencode: OpencodeSession,
+  hooks: {
+    onSessionReplaced?: (session: OpencodeSession) => void;
+  } = {},
 ): Promise<never> {
   const { baseUrl, token } = account;
   let getUpdatesBuf = loadSyncBuffer();
+  let currentOpencode = opencode;
 
   if (getUpdatesBuf) {
     log(`恢复上次同步状态 (${getUpdatesBuf.length} bytes)`);
@@ -216,15 +220,32 @@ export async function startPolling(
         continue;
       }
 
-      consecutiveFailures = 0;
-
       const result = await processUpdateBatch({
         account,
         currentUpdatesBuf: getUpdatesBuf,
-        opencode,
+        opencode: currentOpencode,
         response: resp,
       });
       getUpdatesBuf = result.getUpdatesBuf;
+      if (result.opencode !== currentOpencode) {
+        currentOpencode = result.opencode;
+        hooks.onSessionReplaced?.(currentOpencode);
+      }
+
+      if (!result.batchSucceeded) {
+        consecutiveFailures++;
+        await sleep(
+          consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
+            ? BACKOFF_DELAY_MS
+            : RETRY_DELAY_MS,
+        );
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          consecutiveFailures = 0;
+        }
+        continue;
+      }
+
+      consecutiveFailures = 0;
     } catch (err) {
       consecutiveFailures++;
       logError(`轮询异常: ${describeError(err)}`);
