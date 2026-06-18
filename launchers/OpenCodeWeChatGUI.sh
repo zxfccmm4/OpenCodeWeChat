@@ -1,7 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${PATH}"
+cd "$SCRIPT_DIR/.."
 
 if [ -f "opencode-wechat.env" ]; then
   set -a

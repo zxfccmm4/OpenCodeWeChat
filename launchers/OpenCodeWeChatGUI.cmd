@@ -2,7 +2,7 @@
 setlocal
 chcp 65001 >nul
 
-pushd "%~dp0" >nul
+pushd "%~dp0.." >nul
 
 if exist "opencode-wechat.env" (
   for /f "usebackq eol=# tokens=1,* delims==" %%A in ("opencode-wechat.env") do (

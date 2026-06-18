@@ -15,9 +15,9 @@ OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到�
 
 ## 效果预览
 
-![微信对话效果](wechat_1.jpg)
+![微信对话效果](docs/images/wechat_1.jpg)
 
-![微信对话效果](wechat_2.jpg)
+![微信对话效果](docs/images/wechat_2.jpg)
 
 ## 当前能力
 
@@ -113,13 +113,13 @@ OPENCODE_AGENT=omo bun index.ts
 也可以直接使用源码仓库内置的一键脚本：
 
 ```bash
-./OpenCodeWeChat.command
+./launchers/OpenCodeWeChat.command
 ```
 
 Windows 上双击或在终端运行：
 
 ```cmd
-OpenCodeWeChat.cmd
+launchers/OpenCodeWeChat.cmd
 ```
 
 这两个脚本会自动检查 Bun/OpenCode、安装依赖、在缺少微信凭据时先启动扫码登录，然后启动通道。实际逻辑位于 `scripts/run-macos.command` 和 `scripts/run-windows.cmd`，可选配置文件为项目根目录的 `opencode-wechat.env`。
@@ -130,9 +130,9 @@ OpenCodeWeChat.cmd
 
 | 平台 | 双击或运行 |
 |------|-----------|
-| macOS | `OpenCodeWeChatLauncher.command` |
-| Windows | `OpenCodeWeChatLauncher.cmd` |
-| Linux | `./OpenCodeWeChatLauncher.sh` |
+| macOS | `launchers/OpenCodeWeChatLauncher.command` |
+| Windows | `launchers/launchers/OpenCodeWeChatLauncher.cmd` |
+| Linux | `launchers/OpenCodeWeChatLauncher.sh` |
 
 启动器会显示当前运行状态和登录账号，并提供四个操作：
 
@@ -151,9 +151,9 @@ macOS / Linux 菜单逻辑位于 `scripts/launcher.sh`，Windows 位于 `scripts
 
 | 平台 | 双击或运行 |
 |------|-----------|
-| macOS | `OpenCodeWeChatGUI.command` |
-| Windows | `OpenCodeWeChatGUI.cmd` |
-| Linux | `./OpenCodeWeChatGUI.sh` |
+| macOS | `launchers/OpenCodeWeChatGUI.command` |
+| Windows | `launchers/launchers/OpenCodeWeChatGUI.cmd` |
+| Linux | `launchers/OpenCodeWeChatGUI.sh` |
 
 也可以用 `bun run gui` 启动。控制台是一个只绑定本机回环地址的本地网页（`127.0.0.1:5179`，可用 `OPENCODE_WECHAT_GUI_PORT` 改端口），启动后会自动打开浏览器：
 
@@ -291,10 +291,10 @@ bun setup.ts          # 扫码登录（或重新登录）
 bun scripts/logout.ts # 登出：停止通道并清除本机凭据
 bun index.ts          # 启动通道
 bun run gui           # 启动浏览器图形控制台
-./OpenCodeWeChatLauncher.command  # macOS 一键启动器（登录/登出/启动/停止菜单）
-./OpenCodeWeChatGUI.command  # macOS 图形控制台
-./OpenCodeWeChat.command  # macOS 一键运行
-./StopOpenCodeWeChat.command  # macOS 一键停止
+./launchers/OpenCodeWeChatLauncher.command  # macOS 一键启动器（登录/登出/启动/停止菜单）
+./launchers/OpenCodeWeChatGUI.command  # macOS 图形控制台
+./launchers/OpenCodeWeChat.command  # macOS 一键运行
+./launchers/StopOpenCodeWeChat.command  # macOS 一键停止
 bun test              # 运行最小化自动化测试
 bun run typecheck     # 静态类型检查
 ```
@@ -302,17 +302,17 @@ bun run typecheck     # 静态类型检查
 Linux 一键启动器：
 
 ```bash
-./OpenCodeWeChatLauncher.sh
-./OpenCodeWeChatGUI.sh
+./launchers/OpenCodeWeChatLauncher.sh
+./launchers/OpenCodeWeChatGUI.sh
 ```
 
 Windows 一键运行：
 
 ```cmd
-OpenCodeWeChatLauncher.cmd
-OpenCodeWeChatGUI.cmd
-OpenCodeWeChat.cmd
-StopOpenCodeWeChat.cmd
+launchers/OpenCodeWeChatLauncher.cmd
+launchers/OpenCodeWeChatGUI.cmd
+launchers/OpenCodeWeChat.cmd
+Stoplaunchers/OpenCodeWeChat.cmd
 ```
 
 ## 一键启动打包
