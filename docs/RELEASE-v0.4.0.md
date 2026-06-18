@@ -43,13 +43,13 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 ## SHA256 校验
 
 - `OpenCodeWeChat-0.4.0-macos-arm64.zip`
-  `ae864ad83767228b72ca2bb261b77928b2deae30a9595aaec6dcbc6739c41ca4`
+  `28717a4419d193e7844cbffc5b2638afa6ee67209ad8bed5034bc258493fea77`
 
 - `OpenCodeWeChat-0.4.0-macos-x64.zip`
-  `ca54d1e9bdd8e4e7272edc4ae19680bd6697b1d3d3bf5bd07b361a5c0283aee4`
+  `cb15382c9883653edc7c10425c81644210d5317c332936a97faa11ebdfc938fe`
 
 - `OpenCodeWeChat-0.4.0-windows-x64.zip`
-  `4bb334a1d6fe1e33b7d7155b72cf0d9da3657831106f7ffa498ef0c69ee8426e`
+  `f3e6e6a84d3d4a3d7b579538a4fbe45a7d5a6e6d5fec4e8bf35c240de2bdaf85`
 
 ## 快速上手
 
