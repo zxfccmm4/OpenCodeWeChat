@@ -237,6 +237,9 @@ export async function processMessage(params: {
       }
     } finally {
       if (streamHandle) {
+        // sendPrompt 返回时 SSE 读取器可能仍有缓冲事件未处理，
+        // 短暂等待让读取器把增量消费完，避免 streamFinalText 被截断
+        await new Promise((r) => setTimeout(r, 500));
         streamFinalText = streamHandle.stop();
       }
       if (stopTyping) {
@@ -244,11 +247,15 @@ export async function processMessage(params: {
       }
     }
 
-    let fullText = responseText || streamFinalText;
+    // 取同步响应和 SSE 流中较长的一份：两者都可能有对方没有的内容
+    // （SSE 被提前中断、或同步端点返回不完整），取 max 降低截断风险
+    let displayText = responseText.length >= streamFinalText.length
+      ? responseText
+      : streamFinalText;
     if (sessionRestarted && bubble?.hasSentUpdates) {
-      fullText = `（OpenCode 连接中断，以下为重新生成的完整回复）\n\n${responseText}`;
+      displayText = `（OpenCode 连接中断，以下为重新生成的完整回复）\n\n${responseText}`;
     }
-    if (!fullText && !bubble?.hasSentUpdates) {
+    if (!displayText && !bubble?.hasSentUpdates) {
       ctx.log("OpenCode 返回空响应，跳过发送");
       deps.markMessageProcessed(parsed.dedupeKey);
       clearMessageAttempts(parsed.dedupeKey);
@@ -263,7 +270,7 @@ export async function processMessage(params: {
       bubble,
       command: omoCommand,
       deps,
-      fullText,
+      fullText: displayText,
       message: parsed,
       ctx,
     });

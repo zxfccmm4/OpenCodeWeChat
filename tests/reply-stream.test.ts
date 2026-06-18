@@ -97,3 +97,46 @@ describe("createReplyTextAggregator", () => {
     expect(agg.current()).toBe("增量内容的完整快照");
   });
 });
+
+  test("v1 protocol: deltas inside message.part.updated activate live messages", () => {
+    // v1 servers only send message.part.updated events; the delta is an optional
+    // field in properties. Without a separate message.part.delta event, this is
+    // the only signal that a message is being actively generated.
+    const seen: string[] = [];
+    const agg = createReplyTextAggregator(SESSION, (t) => seen.push(t));
+
+    // First update with delta — marks message as live, snapshot has cumulative text
+    agg.handleEvent({
+      properties: {
+        delta: "你好",
+        part: { id: "p1", messageID: "m1", sessionID: SESSION, text: "你好", type: "text" },
+      },
+      type: "message.part.updated",
+    });
+
+    // Second update with more delta — snapshot has cumulative text
+    agg.handleEvent({
+      properties: {
+        delta: "，世界",
+        part: { id: "p1", messageID: "m1", sessionID: SESSION, text: "你好，世界", type: "text" },
+      },
+      type: "message.part.updated",
+    });
+
+    expect(agg.current()).toBe("你好，世界");
+    expect(seen).toEqual(["你好", "你好，世界"]);
+  });
+
+  test("v1 protocol: snapshot-only updates without delta do not activate messages", () => {
+    // Historical replay: snapshot arrives without delta field — should NOT be treated as live
+    const agg = createReplyTextAggregator(SESSION, () => {});
+
+    agg.handleEvent({
+      properties: {
+        part: { id: "old", messageID: "m_old", sessionID: SESSION, text: "旧回复全文", type: "text" },
+      },
+      type: "message.part.updated",
+    });
+
+    expect(agg.current()).toBe("");
+  });

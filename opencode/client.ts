@@ -218,6 +218,20 @@ export async function sendPrompt(
   });
 
   const responseText = extractResponseText(data);
+
+  if (process.env.OPENCODE_WECHAT_DEBUG_RESPONSE === "1") {
+    const allParts = getParts(data);
+    const partTypes = allParts.map((p) => {
+      if (!isObject(p)) return "?";
+      const t = getString(p, "type");
+      const txt = getString(p, "text");
+      return `${t}:${txt?.length ?? 0}chars`;
+    });
+    process.stderr.write(
+      `[opencode] 调试: parts=[${partTypes.join(", ")}] extracted=${responseText.length}chars\n`,
+    );
+  }
+
   if (!responseText) {
     // 新版 OpenCode 在模型调用失败时返回 200 + 空 parts，错误藏在 info.error 里
     // （例如 "Token refresh failed: 401"）；把它抛出来走失败重试/通知链路

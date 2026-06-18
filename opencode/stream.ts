@@ -1,11 +1,10 @@
 /**
  * 订阅 OpenCode /event SSE 流，聚合当前会话助手回复的文本增量。
  *
- * 事件协议（OpenCode 1.17）:
- *   - message.part.updated: part 快照（含 type，用于区分 text / reasoning）
- *   - message.part.delta:   字段级增量（field="text" 时为文本增量，reasoning
- *                           部分的内容同样通过 field="text" 流出，必须按 part
- *                           type 过滤）
+ * 事件协议（兼容 v1 和 v2）:
+ *   - message.part.updated: part 快照（含 type、累计 text）+ 可选 delta
+ *     v1 服务器只发这一种事件，增量文本通过 properties.delta 传递
+ *   - message.part.delta (仅 v2): 字段级增量，field="text" 时为文本增量
  *   - 连接建立时服务端可能回放历史快照；只有出现过 delta 的消息才视为
  *     "本轮生成中"，避免把上一轮回复重复发给用户。
  */
@@ -88,12 +87,20 @@ export function createReplyTextAggregator(
         const state = ensurePart(partId, messageId);
         const partType = getStr(part, "type");
         if (partType) state.type = partType;
+        // v1 服务器通过 properties.delta 标记活跃生成（v2 用独立事件）
+        // 只有携带 delta 的事件才标记为"本轮生成中"，避免回放历史快照
+        const delta = getStr(props, "delta");
+        if (delta !== undefined) {
+          liveMessages.add(messageId);
+        }
+        // 快照里的 text 始终是累计全文，直接覆盖
         const text = getStr(part, "text");
         if (text !== undefined) state.text = text;
         emit();
         return;
       }
 
+      // message.part.delta（仅 v2）：字段级增量
       if (type === "message.part.delta") {
         if (getStr(props, "sessionID") !== sessionId) return;
         if (getStr(props, "field") !== "text") return;
