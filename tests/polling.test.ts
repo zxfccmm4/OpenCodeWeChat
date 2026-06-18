@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { processUpdateBatch, resetMessageAttemptTracking } from "../polling/loop";
+import { processMessage } from "../polling/message-processor";
+import { parseMessage } from "../core/message";
 import type { AccountData, GetUpdatesResp } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
 import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
@@ -223,8 +225,8 @@ describe("processUpdateBatch", () => {
         getCachedContextToken() {
           return "cached-ctx";
         },
-        async sendStreamingText(_baseUrl, _token, params) {
-          sentTokens.push(params.contextToken);
+        async sendTextMessage(_baseUrl, _token, _to, _text, contextToken) {
+          sentTokens.push(contextToken);
         },
       }),
       opencode: TEST_SESSION,
@@ -358,7 +360,7 @@ describe("processUpdateBatch", () => {
   });
 
   test("sends media directives as media messages instead of raw text", async () => {
-    const finishTexts: string[] = [];
+    const sentTexts: string[] = [];
     const sentMedia: Array<{ filePath: string; kind: string; text: string | undefined }> = [];
 
     const result = await processUpdateBatch({
@@ -375,8 +377,8 @@ describe("processUpdateBatch", () => {
             text: params.text,
           });
         },
-        async sendStreamingText(_baseUrl, _token, params) {
-          if (params.finish) finishTexts.push(params.text);
+        async sendTextMessage(_baseUrl, _token, _to, text) {
+          sentTexts.push(text);
         },
       }),
       opencode: TEST_SESSION,
@@ -387,7 +389,7 @@ describe("processUpdateBatch", () => {
     });
 
     expect(result.batchSucceeded).toBe(true);
-    expect(finishTexts).toEqual(["前置说明\n\n后置说明"]);
+    expect(sentTexts).toEqual(["前置说明\n\n后置说明"]);
     expect(sentMedia).toEqual([
       { filePath: "/tmp/result.png", kind: "image", text: "结果图" },
     ]);
@@ -574,8 +576,8 @@ describe("processUpdateBatch", () => {
           }
           return "恢复后的回复";
         },
-        async sendStreamingText(_baseUrl, _token, params) {
-          if (params.finish) sentTexts.push(params.text);
+        async sendTextMessage(_baseUrl, _token, _to, text) {
+          sentTexts.push(text);
         },
       }),
       opencode: TEST_SESSION,
@@ -592,6 +594,136 @@ describe("processUpdateBatch", () => {
     expect(promptSessions).toEqual(["session-1", "session-2"]);
     expect(result.opencode.id).toBe("session-2");
     expect(sentTexts).toEqual(["恢复后的回复"]);
+  });
+
+  test("restarts the OpenCode session and retries when a prompt times out", async () => {
+    const replacementSession: OpencodeSession = {
+      ...TEST_SESSION,
+      id: "session-2",
+    };
+    let restartCalls = 0;
+    let promptCalls = 0;
+    const sentTexts: string[] = [];
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        async restartOpencode() {
+          restartCalls += 1;
+          return replacementSession;
+        },
+        async sendPrompt() {
+          promptCalls += 1;
+          if (promptCalls === 1) {
+            throw new Error("The operation timed out.");
+          }
+          return "超时后完整回复";
+        },
+        async sendTextMessage(_baseUrl, _token, _to, text) {
+          sentTexts.push(text);
+        },
+      }),
+      opencode: TEST_SESSION,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(result.getUpdatesBuf).toBe("new-buf");
+    expect(restartCalls).toBe(1);
+    expect(promptCalls).toBe(2);
+    expect(result.opencode.id).toBe("session-2");
+    expect(sentTexts).toEqual(["超时后完整回复"]);
+  });
+
+  test("skips a message when the restarted OpenCode session still times out", async () => {
+    const replacementSession: OpencodeSession = {
+      ...TEST_SESSION,
+      id: "session-2",
+    };
+    let restartCalls = 0;
+    let promptCalls = 0;
+    let markedProcessed = 0;
+    const sentTexts: string[] = [];
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        markMessageProcessed() {
+          markedProcessed += 1;
+        },
+        async restartOpencode() {
+          restartCalls += 1;
+          return replacementSession;
+        },
+        async sendPrompt() {
+          promptCalls += 1;
+          throw new Error("The operation timed out.");
+        },
+        async sendTextMessage(_baseUrl, _token, _to, text) {
+          sentTexts.push(text);
+        },
+      }),
+      opencode: TEST_SESSION,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(result.getUpdatesBuf).toBe("new-buf");
+    expect(restartCalls).toBe(1);
+    expect(promptCalls).toBe(2);
+    expect(result.opencode.id).toBe("session-2");
+    expect(markedProcessed).toBe(1);
+    expect(sentTexts).toHaveLength(1);
+    expect(sentTexts[0]).toContain("2 次处理失败");
+    expect(sentTexts[0]).toContain("已跳过");
+  });
+
+  test("stops typing while a prompt is still stuck", async () => {
+    let typingStops = 0;
+    const parsed = parseMessage(createUserMessage({ contextToken: "ctx-1", text: "你好" }));
+    if (!parsed) {
+      throw new Error("test fixture should parse");
+    }
+
+    const run = processMessage({
+      ctx: {
+        account: { baseUrl: TEST_ACCOUNT.baseUrl, token: TEST_ACCOUNT.token },
+        cdnBaseUrl: "https://cdn.example.com",
+        channelVersion: "0.4.0",
+        inboxDir: "/tmp/inbox",
+        log() {},
+        logError() {},
+        maxMessageAttempts: 3,
+        maxTextLen: 200,
+        streamUpdateIntervalMs: 1_200,
+        typingMaxDurationMs: 50,
+        verboseLogs: false,
+      },
+      deps: createDeps({
+        async sendPrompt() {
+          return await new Promise<string>(() => {});
+        },
+        async startTypingIndicator() {
+          return async () => {
+            typingStops += 1;
+          };
+        },
+      }),
+      message: parsed,
+      opencode: TEST_SESSION,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(typingStops).toBe(1);
+    void run;
   });
 
   test("does not restart the session for non-connection errors", async () => {
@@ -678,65 +810,6 @@ describe("processUpdateBatch", () => {
     expect(sentTexts[0]).toContain("已跳过");
   });
 
-  test("streams via a single in-place bubble and finishes it once", async () => {
-    const bubbleSends: Array<{ finish: boolean; text: string }> = [];
-    let typingStarts = 0;
-    let typingStops = 0;
-    let streamStops = 0;
-    const para1 = "甲".repeat(130);
-    const tail = "乙".repeat(40);
-    const fullText = `${para1}\n\n${tail}`;
-    let pushText: ((cumulative: string) => void) | null = null;
-
-    const result = await processUpdateBatch({
-      account: TEST_ACCOUNT,
-      currentUpdatesBuf: "old-buf",
-      deps: createDeps({
-        async openReplyStream(_session, onText) {
-          pushText = onText;
-          return {
-            stop() {
-              streamStops += 1;
-              return fullText;
-            },
-          };
-        },
-        async sendPrompt() {
-          pushText?.(para1);
-          // 让首次更新的零延迟定时器有机会触发
-          await new Promise((resolve) => setTimeout(resolve, 20));
-          pushText?.(fullText);
-          return fullText;
-        },
-        async sendStreamingText(_baseUrl, _token, params) {
-          bubbleSends.push({ finish: params.finish, text: params.text });
-        },
-        async startTypingIndicator() {
-          typingStarts += 1;
-          return async () => {
-            typingStops += 1;
-          };
-        },
-      }),
-      opencode: TEST_SESSION,
-      response: {
-        get_updates_buf: "new-buf",
-        msgs: [createUserMessage({ contextToken: "ctx-1", text: "长任务" })],
-      },
-    });
-
-    expect(result.batchSucceeded).toBe(true);
-    expect(typingStarts).toBe(1);
-    expect(typingStops).toBe(1);
-    expect(streamStops).toBe(1);
-    // 至少一次 GENERATING 更新 + 恰好一次 FINISH 收口，且全部同一气泡语义
-    const generating = bubbleSends.filter((send) => !send.finish);
-    const finished = bubbleSends.filter((send) => send.finish);
-    expect(generating.length).toBeGreaterThanOrEqual(1);
-    expect(generating[0]?.text).toBe(para1);
-    expect(finished).toEqual([{ finish: true, text: fullText }]);
-  });
-
   test("degrades to a plain text message when the streaming finish fails", async () => {
     const plainTexts: string[] = [];
     let finishAttempts = 0;
@@ -745,6 +818,13 @@ describe("processUpdateBatch", () => {
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps: createDeps({
+        async openReplyStream() {
+          return {
+            stop() {
+              return "";
+            },
+          };
+        },
         async sendPrompt() {
           return "正常的回复内容";
         },

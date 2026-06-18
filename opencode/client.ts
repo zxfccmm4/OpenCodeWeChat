@@ -2,12 +2,23 @@ import {
   loadAgents,
   resolveRequestedAgent,
 } from "./agents";
+import { isOpencodeConnectionError } from "./errors";
 import {
   getString,
   isObject,
   requestJson,
   OpencodeHttpError,
 } from "./http";
+import {
+  DEFAULT_OPENCODE_MODEL_ID,
+  DEFAULT_OPENCODE_PROVIDER_ID,
+  OPENCODE_PROMPT_TIMEOUT_MS,
+} from "../config";
+import {
+  extractResponseError,
+  extractResponseText,
+  getParts,
+} from "./response";
 import { startOpencodeServer } from "./server";
 import type {
   OpencodeModel,
@@ -16,6 +27,7 @@ import type {
 } from "./types";
 
 export type { OpencodeSession } from "./types";
+export { isOpencodeConnectionError } from "./errors";
 
 type TextPart = {
   readonly type: "text";
@@ -33,10 +45,15 @@ function getModelOverride(): OpencodeModel | undefined {
   const providerID = process.env.OPENCODE_PROVIDER_ID?.trim();
   const modelID = process.env.OPENCODE_MODEL_ID?.trim();
 
-  if (!providerID && !modelID) return undefined;
+  if (!providerID && !modelID) {
+    return {
+      providerID: DEFAULT_OPENCODE_PROVIDER_ID,
+      modelID: DEFAULT_OPENCODE_MODEL_ID,
+    };
+  }
   if (!providerID || !modelID) {
     throw new Error(
-      "OPENCODE_PROVIDER_ID 和 OPENCODE_MODEL_ID 必须同时设置，或同时不设置以使用 OpenCode 默认模型",
+      "OPENCODE_PROVIDER_ID 和 OPENCODE_MODEL_ID 必须同时设置，或同时不设置以使用 OpenCodeWeChat 默认模型",
     );
   }
 
@@ -170,24 +187,6 @@ export async function startOpencode(): Promise<OpencodeSession> {
 }
 
 /**
- * 判断错误是否是"OpenCode 服务器不可达"一类的连接错误。
- * Bun 的 fetch 在连接被拒时抛 "Unable to connect. Is the computer able to access the url?"。
- */
-export function isOpencodeConnectionError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
-  const text = `${err.name}: ${err.message}`.toLowerCase();
-  return (
-    text.includes("unable to connect")
-    || text.includes("econnrefused")
-    || text.includes("connection refused")
-    || text.includes("connectionrefused")
-    || text.includes("connection closed")
-    || text.includes("socket connection was closed")
-    || text.includes("fetch failed")
-  );
-}
-
-/**
  * OpenCode 服务进程死掉后重建：关闭旧会话（杀掉残留子进程），
  * 重新拉起 `opencode serve` 并创建新会话。
  */
@@ -206,7 +205,8 @@ export async function sendPrompt(
   session: OpencodeSession,
   text: string,
   options: SendPromptOptions = {},
-): Promise<string> {  process.stderr.write(`[opencode] 发送 prompt (${text.length} chars)\n`);
+): Promise<string> {
+  process.stderr.write(`[opencode] 发送 prompt (${text.length} chars)\n`);
 
   const body = buildPromptBody(session, text, options);
   const data = await requestJson({
@@ -215,6 +215,7 @@ export async function sendPrompt(
     method: "POST",
     path: `/session/${encodeURIComponent(session.id)}/message`,
     serverUrl: session.serverUrl,
+    timeoutMs: options.timeoutMs ?? OPENCODE_PROMPT_TIMEOUT_MS,
   });
 
   const responseText = extractResponseText(data);
@@ -245,17 +246,6 @@ export async function sendPrompt(
   return responseText;
 }
 
-function extractResponseError(data: unknown): string | undefined {
-  if (!isObject(data)) return undefined;
-  const info = Reflect.get(data, "info");
-  if (!isObject(info)) return undefined;
-  const error = Reflect.get(info, "error");
-  if (!isObject(error)) return undefined;
-  const nested = Reflect.get(error, "data");
-  const message = isObject(nested) ? getString(nested, "message") : undefined;
-  return message || getString(error, "name");
-}
-
 function buildPromptBody(
   session: OpencodeSession,
   text: string,
@@ -268,33 +258,6 @@ function buildPromptBody(
   const withSystem = options.system ? { ...withModel, system: options.system } : withModel;
   const agent = options.agent ?? session.agent;
   return agent ? { ...withSystem, agent } : withSystem;
-}
-
-function extractResponseText(data: unknown): string {
-  return getParts(data)
-    .map(getTextPart)
-    .filter((text): text is string => text !== undefined)
-    .join("\n");
-}
-
-function getParts(data: unknown): readonly unknown[] {
-  if (!isObject(data)) return [];
-
-  const parts = Reflect.get(data, "parts");
-  if (Array.isArray(parts)) return parts;
-
-  const nested = Reflect.get(data, "data");
-  if (!isObject(nested)) return [];
-
-  const nestedParts = Reflect.get(nested, "parts");
-  return Array.isArray(nestedParts) ? nestedParts : [];
-}
-
-function getTextPart(part: unknown): string | undefined {
-  if (!isObject(part)) return undefined;
-  const type = getString(part, "type");
-  const text = getString(part, "text");
-  return type === "text" && text ? text : undefined;
 }
 
 function isMissingLegacySessionRoute(statusCode: number): boolean {

@@ -74,7 +74,7 @@ describe("StreamingTextBubble", () => {
     expect(sends).toEqual([{ finish: true, text: "最终内容" }]);
   });
 
-  test("finalize with empty text falls back to the last streamed content", async () => {
+  test("finalize with empty text leaves an already streamed preview unchanged", async () => {
     const sends: Array<{ finish: boolean; text: string }> = [];
     const bubble = new StreamingTextBubble(async (text, finish) => {
       sends.push({ finish, text });
@@ -86,7 +86,6 @@ describe("StreamingTextBubble", () => {
 
     expect(sends).toEqual([
       { finish: false, text: "已经流出去的内容" },
-      { finish: true, text: "已经流出去的内容" },
     ]);
   });
 

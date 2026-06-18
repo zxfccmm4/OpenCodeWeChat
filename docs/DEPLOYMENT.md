@@ -96,7 +96,7 @@ chmod 600 ~/.claude/channels/wechat/account.json
 
 ## 前台运行
 
-使用 OpenCode 默认模型：
+使用 OpenCodeWeChat 默认模型（当前为 `Steveai/gpt-5.4-mini`）：
 
 ```bash
 cd /opt/opencode-wechat
@@ -119,12 +119,13 @@ OPENCODE_PROVIDER_ID=github-copilot OPENCODE_MODEL_ID=claude-sonnet-4.6 bun inde
 注意：
 
 - `OPENCODE_PROVIDER_ID` 和 `OPENCODE_MODEL_ID` 必须同时设置或同时不设置
+- 不设置时使用 OpenCodeWeChat 默认模型，可用 `OPENCODE_WECHAT_DEFAULT_PROVIDER_ID` / `OPENCODE_WECHAT_DEFAULT_MODEL_ID` 调整
 - 通常不要同时设置 `OPENCODE_AGENT` 和 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`
 
 启动成功时，日志应类似：
 
 ```text
-[opencode] 使用 OpenCode 默认模型
+[opencode] 使用模型: Steveai/gpt-5.4-mini
 [opencode] 使用 agent: Sisyphus - Ultraworker
 [polling] 开始监听微信消息...
 ```

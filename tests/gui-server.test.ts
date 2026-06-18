@@ -118,6 +118,27 @@ describe("GUI server routes", () => {
     expect(spawned).toBe(1);
   });
 
+  test("does not double-start while a channel launch is pending", async () => {
+    let spawned = 0;
+    const app = createGuiApp(createDeps({
+      loadCredentials() {
+        return TEST_ACCOUNT;
+      },
+      spawnChannel() {
+        spawned += 1;
+      },
+    }));
+
+    const first = await app.fetch(request("POST", "/api/start"));
+    const second = await app.fetch(request("POST", "/api/start"));
+    const data = await second.json() as Record<string, unknown>;
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(String(data.message)).toContain("启动中");
+    expect(spawned).toBe(1);
+  });
+
   test("does not double-start a running channel", async () => {
     let spawned = 0;
     const app = createGuiApp(createDeps({

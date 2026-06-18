@@ -10,8 +10,7 @@ import { parseWechatReplyParts } from "../core/wechat-media-directive";
 import { WECHAT_REPLY_TEXT_CHUNK_CHARS } from "../config";
 import type { OmoCommand, OmoPlanContext } from "../core/omo-command";
 import type { ParsedMessage } from "../types/wechat";
-import type { MessageProcessorDeps } from "./message-processor";
-import type { ProcessorContext } from "./message-processor";
+import type { MessageProcessorDeps, ProcessorContext } from "./message-processor-types";
 
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -41,7 +40,7 @@ async function sendTextChunks(params: {
 }
 
 export async function sendReplyToUser(params: {
-  readonly bubble: StreamingTextBubble;
+  readonly bubble: StreamingTextBubble | null;
   readonly command: OmoCommand;
   readonly deps: MessageProcessorDeps;
   readonly fullText: string;
@@ -63,13 +62,17 @@ export async function sendReplyToUser(params: {
     .map((part) => part.text)
     .join("\n\n");
   const textChunks = splitTextForWechat(finalText, WECHAT_REPLY_TEXT_CHUNK_CHARS);
-  let plainTextChunks: readonly string[] = textChunks.slice(1);
+  let plainTextChunks: readonly string[] = textChunks;
 
-  try {
-    await bubble.finalize(textChunks[0] ?? "");
-  } catch (err) {
-    ctx.logError(`流式收口失败，降级为普通消息: ${describeError(err)}`);
-    plainTextChunks = textChunks;
+  if (bubble) {
+    const hasStreamPreview = bubble.hasPreview;
+    plainTextChunks = hasStreamPreview ? textChunks : textChunks.slice(1);
+    try {
+      await bubble.finalize(hasStreamPreview ? "" : textChunks[0] ?? "");
+    } catch (err) {
+      ctx.logError(`流式收口失败，降级为普通消息: ${describeError(err)}`);
+      plainTextChunks = textChunks;
+    }
   }
 
   await sendTextChunks({
@@ -114,7 +117,7 @@ export async function sendReplyToUser(params: {
     }
   }
 
-  ctx.log(bubble.hasSentUpdates ? "已发送回复（流式气泡）" : "已发送回复");
+  ctx.log(bubble?.hasSentUpdates ? "已发送回复（流式气泡）" : "已发送回复");
   if (command.mode === "plan") {
     const planContext: OmoPlanContext = {
       originalRequest: command.body || parsed.text,

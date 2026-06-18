@@ -30,6 +30,7 @@ import {
   MAX_MESSAGE_TEXT_LEN,
   RETRY_DELAY_MS,
   STREAM_UPDATE_INTERVAL_MS,
+  TYPING_MAX_DURATION_MS,
 } from "../config";
 import type { AccountData, GetUpdatesResp } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
@@ -37,9 +38,11 @@ import { restartOpencode, sendPrompt } from "../opencode/client";
 import { openReplyTextStream } from "../opencode/stream";
 import {
   processMessage,
-  type MessageProcessorDeps,
-  type ProcessorContext,
 } from "./message-processor";
+import type {
+  MessageProcessorDeps,
+  ProcessorContext,
+} from "./message-processor-types";
 import { resetMessageAttemptTracking } from "./retry-tracker";
 import { loadSyncBuffer, saveSyncBuffer } from "../storage/sync-buffer";
 import {
@@ -109,6 +112,7 @@ function buildProcessorContext(account: AccountData): ProcessorContext {
     maxMessageAttempts: MAX_MESSAGE_ATTEMPTS,
     maxTextLen: MAX_MESSAGE_TEXT_LEN,
     streamUpdateIntervalMs: STREAM_UPDATE_INTERVAL_MS,
+    typingMaxDurationMs: TYPING_MAX_DURATION_MS,
     verboseLogs: ENABLE_VERBOSE_MESSAGE_LOGS,
   };
 }

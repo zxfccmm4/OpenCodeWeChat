@@ -14,6 +14,7 @@ export type OpencodeAgent = {
 export type SendPromptOptions = {
   readonly agent?: string;
   readonly system?: string;
+  readonly timeoutMs?: number;
 };
 
 export interface OpencodeSession {

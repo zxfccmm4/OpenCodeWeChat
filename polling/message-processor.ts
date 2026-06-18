@@ -7,15 +7,7 @@
  * 以便独立测试和降低 loop.ts 的认知负担。
  */
 import { buildOmoSendPromptOptions } from "../core/omo-agent-routing";
-import { sendMediaMessage } from "../api/media";
-import type { DownloadedMedia } from "../api/media-download";
-import {
-  cacheContextToken,
-  getCachedContextToken,
-} from "../core/context-token";
-import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 import { StreamingTextBubble } from "../core/streaming-bubble";
-import type { StopTypingFn } from "../core/typing-indicator";
 import {
   buildStreamPreview,
   WECHAT_MEDIA_PROMPT_HINT,
@@ -27,87 +19,20 @@ import {
   recordMessageFailure,
 } from "./retry-tracker";
 import type { ParsedMessage } from "../types/wechat";
-import type { IncomingMedia } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
-import {
-  isOpencodeConnectionError,
-  restartOpencode,
-  sendPrompt,
-} from "../opencode/client";
-import { openReplyTextStream } from "../opencode/stream";
+import { isOpencodeConnectionError } from "../opencode/errors";
 import type { ReplyStreamHandle } from "../opencode/stream";
-import {
-  generateClientId,
-  sendStreamingText,
-  sendTextMessage,
-} from "../api/ilink";
-import {
-  getLatestPlanContext,
-  saveLatestPlanContext,
-} from "../storage/omo-plan-context";
-import {
-  hasProcessedMessage,
-  markMessageProcessed,
-} from "../storage/processed-messages";
+import type {
+  MessageProcessorDeps,
+  ProcessMessageResult,
+  ProcessorContext,
+} from "./message-processor-types";
 
-type OpenReplyStreamFn = (
-  session: OpencodeSession,
-  onText: (cumulative: string) => void,
-) => Promise<ReplyStreamHandle>;
-
-type StartTypingIndicatorFn = (params: {
-  readonly baseUrl: string;
-  readonly contextToken?: string;
-  readonly ilinkUserId: string;
-  readonly token: string;
-}) => Promise<StopTypingFn>;
-
-export type MessageProcessorDeps = {
-  readonly buildOmoPrompt: typeof buildOmoPrompt;
-  readonly cacheContextToken: typeof cacheContextToken;
-  readonly downloadIncomingMedia: (
-    media: IncomingMedia,
-    options: {
-      readonly cdnBaseUrl: string;
-      readonly inboxDir: string;
-    },
-  ) => Promise<DownloadedMedia>;
-  readonly generateClientId: typeof generateClientId;
-  readonly getCachedContextToken: typeof getCachedContextToken;
-  readonly getLatestPlanContext: typeof getLatestPlanContext;
-  readonly hasProcessedMessage: typeof hasProcessedMessage;
-  readonly markMessageProcessed: typeof markMessageProcessed;
-  readonly openReplyStream: OpenReplyStreamFn | null;
-  readonly parseOmoCommand: typeof parseOmoCommand;
-  readonly restartOpencode: typeof restartOpencode;
-  readonly saveLatestPlanContext: typeof saveLatestPlanContext;
-  readonly sendMediaMessage: typeof sendMediaMessage;
-  readonly sendPrompt: typeof sendPrompt;
-  readonly sendStreamingText: typeof sendStreamingText;
-  readonly sendTextMessage: typeof sendTextMessage;
-  readonly startTypingIndicator: StartTypingIndicatorFn;
-};
-
-export type ProcessorContext = {
-  readonly account: {
-    readonly baseUrl: string;
-    readonly token: string;
-  };
-  readonly channelVersion: string;
-  readonly cdnBaseUrl: string;
-  readonly inboxDir: string;
-  readonly maxMessageAttempts: number;
-  readonly streamUpdateIntervalMs: number;
-  readonly verboseLogs: boolean;
-  readonly maxTextLen: number;
-  readonly log: (msg: string) => void;
-  readonly logError: (msg: string) => void;
-};
-
-export type ProcessMessageResult =
-  | { readonly status: "processed"; readonly opencode?: OpencodeSession }
-  | { readonly status: "skipped" }
-  | { readonly status: "failed-retryable"; readonly opencode?: OpencodeSession };
+export type {
+  MessageProcessorDeps,
+  ProcessMessageResult,
+  ProcessorContext,
+} from "./message-processor-types";
 
 function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -120,6 +45,53 @@ function summarizeMessage(text: string, maxLen: number): string {
     : normalized;
 }
 
+function stopAfterMaxDuration(
+  stopTyping: (() => Promise<void>) | null,
+  maxDurationMs: number,
+): (() => Promise<void>) | null {
+  if (!stopTyping) return null;
+  let stopped = false;
+  const stop = async () => {
+    if (stopped) return;
+    stopped = true;
+    clearTimeout(timer);
+    await stopTyping();
+  };
+  const timer = setTimeout(() => {
+    void stop();
+  }, maxDurationMs);
+  return stop;
+}
+
+async function notifySkippedMessage(params: {
+  readonly attempts: number;
+  readonly baseUrl: string;
+  readonly ctx: ProcessorContext;
+  readonly deps: MessageProcessorDeps;
+  readonly error: unknown;
+  readonly message: ParsedMessage;
+  readonly token: string;
+}): Promise<void> {
+  const { attempts, baseUrl, ctx, deps, error, message, token } = params;
+  const contextToken = message.contextToken
+    || deps.getCachedContextToken(message.senderId);
+  if (!contextToken) return;
+
+  try {
+    await deps.sendTextMessage(
+      baseUrl,
+      token,
+      message.senderId,
+      `（这条消息连续 ${attempts} 次处理失败，已跳过。原因：${describeError(error)}。请稍后重新发送。）`,
+      contextToken,
+      deps.generateClientId(),
+      ctx.channelVersion,
+    );
+  } catch (notifyErr) {
+    ctx.logError(`发送失败通知也失败了: ${describeError(notifyErr)}`);
+  }
+}
+
 export async function processMessage(params: {
   readonly message: ParsedMessage;
   readonly opencode: OpencodeSession;
@@ -129,6 +101,7 @@ export async function processMessage(params: {
   const { message: parsed, opencode: initialOpencode, deps, ctx } = params;
   const { baseUrl, token } = ctx.account;
   const omoCommand = deps.parseOmoCommand(parsed.text);
+  let currentOpencode = initialOpencode;
 
   if (deps.hasProcessedMessage(parsed.dedupeKey)) {
     ctx.log(`跳过已处理消息: from=${parsed.senderId}`);
@@ -182,7 +155,7 @@ export async function processMessage(params: {
       || deps.getCachedContextToken(parsed.senderId);
 
     // 微信"对方正在输入"指示器
-    const stopTyping = contextToken
+    const rawStopTyping = contextToken
       ? await deps.startTypingIndicator({
         baseUrl,
         contextToken,
@@ -190,10 +163,10 @@ export async function processMessage(params: {
         token,
       })
       : null;
+    const stopTyping = stopAfterMaxDuration(rawStopTyping, ctx.typingMaxDurationMs);
 
-    // 流式气泡：同一 client_id 原地更新（GENERATING → FINISH）
-    const bubbleClientId = deps.generateClientId();
-    const bubble = contextToken
+    const bubbleClientId = deps.openReplyStream ? deps.generateClientId() : "";
+    const bubble = contextToken && deps.openReplyStream
       ? new StreamingTextBubble(
         (text, finish) => deps.sendStreamingText(baseUrl, token, {
           clientId: bubbleClientId,
@@ -222,7 +195,6 @@ export async function processMessage(params: {
     let responseText = "";
     let streamFinalText = "";
     let sessionRestarted = false;
-    let currentOpencode = initialOpencode;
     try {
       try {
         responseText = await sendOnce(initialOpencode);
@@ -233,7 +205,24 @@ export async function processMessage(params: {
         currentOpencode = await deps.restartOpencode(initialOpencode);
         sessionRestarted = true;
         ctx.log("OpenCode 会话已重启，重试当前消息...");
-        responseText = await sendOnce(currentOpencode);
+        try {
+          responseText = await sendOnce(currentOpencode);
+        } catch (retryErr) {
+          if (!isOpencodeConnectionError(retryErr)) throw retryErr;
+          ctx.logError(`OpenCode 重启后仍连接失败，跳过当前消息: ${describeError(retryErr)}`);
+          await notifySkippedMessage({
+            attempts: 2,
+            baseUrl,
+            ctx,
+            deps,
+            error: retryErr,
+            message: parsed,
+            token,
+          });
+          deps.markMessageProcessed(parsed.dedupeKey);
+          clearMessageAttempts(parsed.dedupeKey);
+          return { status: "skipped", opencode: currentOpencode };
+        }
       }
     } finally {
       if (streamHandle) {
@@ -261,10 +250,6 @@ export async function processMessage(params: {
       clearMessageAttempts(parsed.dedupeKey);
       return { status: "skipped" };
     }
-    if (!bubble) {
-      ctx.logError(`缺少流式气泡上下文，无法回复用户 ${parsed.senderId}`);
-      return { status: "skipped" };
-    }
 
     await sendReplyToUser({
       bubble,
@@ -287,28 +272,22 @@ export async function processMessage(params: {
 
     if (attempts >= ctx.maxMessageAttempts) {
       ctx.logError(`消息重试 ${attempts} 次仍失败，跳过: from=${parsed.senderId}`);
-      const contextToken = parsed.contextToken
-        || deps.getCachedContextToken(parsed.senderId);
-      if (contextToken) {
-        try {
-          await deps.sendTextMessage(
-            baseUrl,
-            token,
-            parsed.senderId,
-            `（这条消息连续 ${attempts} 次处理失败，已跳过。原因：${describeError(err)}。请稍后重新发送。）`,
-            contextToken,
-            deps.generateClientId(),
-            ctx.channelVersion,
-          );
-        } catch (notifyErr) {
-          ctx.logError(`发送失败通知也失败了: ${describeError(notifyErr)}`);
-        }
-      }
+      await notifySkippedMessage({
+        attempts,
+        baseUrl,
+        ctx,
+        deps,
+        error: err,
+        message: parsed,
+        token,
+      });
       deps.markMessageProcessed(parsed.dedupeKey);
       clearMessageAttempts(parsed.dedupeKey);
       return { status: "skipped" };
     }
 
-    return { status: "failed-retryable" };
+    return currentOpencode !== initialOpencode
+      ? { status: "failed-retryable", opencode: currentOpencode }
+      : { status: "failed-retryable" };
   }
 }

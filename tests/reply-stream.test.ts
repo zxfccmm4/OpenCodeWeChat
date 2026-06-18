@@ -30,6 +30,21 @@ describe("createReplyTextAggregator", () => {
     expect(seen).toEqual(["你好", "你好，世界"]);
   });
 
+  test("accumulates text deltas when they arrive before the part snapshot", () => {
+    const seen: string[] = [];
+    const agg = createReplyTextAggregator(SESSION, (t) => seen.push(t));
+
+    agg.handleEvent(partDelta({
+      delta: "完整", field: "text", messageID: "m1", partID: "p1", sessionID: SESSION,
+    }));
+    agg.handleEvent(partDelta({
+      delta: "回答", field: "text", messageID: "m1", partID: "p1", sessionID: SESSION,
+    }));
+
+    expect(agg.current()).toBe("完整回答");
+    expect(seen).toEqual(["完整", "完整回答"]);
+  });
+
   test("excludes reasoning parts even though their deltas use field=text", () => {
     const agg = createReplyTextAggregator(SESSION, () => {});
 

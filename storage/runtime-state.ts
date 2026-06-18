@@ -14,9 +14,27 @@ export function writePidFile(pid = process.pid, pidFile = PID_FILE): void {
   fs.writeFileSync(pidFile, String(pid), "utf-8");
 }
 
+export type ClaimPidFileResult =
+  | { readonly status: "claimed" }
+  | { readonly status: "already-running"; readonly pid: number };
+
+export function claimPidFile(pid = process.pid, pidFile = PID_FILE): ClaimPidFileResult {
+  const existingPid = readPidFile(pidFile);
+  if (existingPid !== null && existingPid !== pid && isProcessAlive(existingPid)) {
+    return { status: "already-running", pid: existingPid };
+  }
+  writePidFile(pid, pidFile);
+  return { status: "claimed" };
+}
+
 export function removePidFile(pidFile = PID_FILE): void {
   if (!fs.existsSync(pidFile)) return;
   fs.rmSync(pidFile, { force: true });
+}
+
+export function removePidFileIfOwned(pid = process.pid, pidFile = PID_FILE): void {
+  if (readPidFile(pidFile) !== pid) return;
+  removePidFile(pidFile);
 }
 
 export function readPidFile(pidFile = PID_FILE): number | null {

@@ -109,6 +109,7 @@ export function createReplyTextAggregator(
         if (!partId || !messageId) return;
         liveMessages.add(messageId);
         const state = ensurePart(partId, messageId);
+        state.type ??= "text";
         state.text += getStr(props, "delta") ?? "";
         emit();
       }

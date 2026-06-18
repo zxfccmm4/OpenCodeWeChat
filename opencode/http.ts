@@ -21,30 +21,45 @@ export async function requestJson(params: {
   readonly method?: "GET" | "POST";
   readonly serverUrl: string;
   readonly path: string;
+  readonly timeoutMs?: number;
 }): Promise<unknown> {
-  const response = await fetch(new URL(params.path, params.serverUrl), {
-    method: params.method ?? "GET",
-    headers: {
-      Authorization: params.authHeader,
-      ...(params.body === undefined ? {} : { "Content-Type": "application/json" }),
-    },
-    ...(params.body === undefined ? {} : { body: JSON.stringify(params.body) }),
-  });
+  const controller = new AbortController();
+  const timeoutId = params.timeoutMs === undefined
+    ? null
+    : setTimeout(() => controller.abort(new Error("The operation timed out.")), params.timeoutMs);
+  try {
+    const response = await fetch(new URL(params.path, params.serverUrl), {
+      method: params.method ?? "GET",
+      headers: {
+        Authorization: params.authHeader,
+        ...(params.body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      ...(params.body === undefined ? {} : { body: JSON.stringify(params.body) }),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const details = await readErrorDetails(response);
-    throw new OpencodeHttpError(
-      `HTTP ${response.status}${details ? `: ${details}` : ""}`,
-      response.status,
-      details,
-    );
+    if (!response.ok) {
+      const details = await readErrorDetails(response);
+      throw new OpencodeHttpError(
+        `HTTP ${response.status}${details ? `: ${details}` : ""}`,
+        response.status,
+        details,
+      );
+    }
+
+    if (response.status === 204) return {};
+    const text = await response.text();
+    if (!text.trim()) return {};
+    const data: unknown = JSON.parse(text);
+    return data;
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error("The operation timed out.");
+    }
+    throw err;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
-
-  if (response.status === 204) return {};
-  const text = await response.text();
-  if (!text.trim()) return {};
-  const data: unknown = JSON.parse(text);
-  return data;
 }
 
 export async function readErrorDetails(response: Response): Promise<string> {

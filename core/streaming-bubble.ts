@@ -28,6 +28,10 @@ export class StreamingTextBubble {
     return this.sentAny;
   }
 
+  get hasPreview(): boolean {
+    return this.latestText.trim().length > 0;
+  }
+
   /** GENERATING 更新是否已失败（降级信号） */
   get isBroken(): boolean {
     return this.broken;
@@ -80,7 +84,7 @@ export class StreamingTextBubble {
     await this.chain.catch(() => {});
 
     const text = finalText.trim() || this.lastSentText;
-    if (!text) return;
+    if (!text || (this.sentAny && !finalText.trim())) return;
     await this.send(text, true);
   }
 }

@@ -2,8 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { StreamingTextBubble } from "../core/streaming-bubble";
 import type { OmoCommand } from "../core/omo-command";
 import { sendReplyToUser } from "../polling/reply-sender";
-import type { MessageProcessorDeps, ProcessorContext } from "../polling/message-processor";
+import type { MessageProcessorDeps, ProcessorContext } from "../polling/message-processor-types";
 import type { ParsedMessage } from "../types/wechat";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 const TEST_COMMAND: OmoCommand = {
   body: "普通问题",
@@ -34,6 +38,7 @@ const TEST_CONTEXT: ProcessorContext = {
   maxMessageAttempts: 3,
   maxTextLen: 200,
   streamUpdateIntervalMs: 1_200,
+  typingMaxDurationMs: 45_000,
   verboseLogs: false,
 };
 
@@ -102,5 +107,30 @@ describe("sendReplyToUser", () => {
 
     expect(sentTexts.length).toBeGreaterThan(1);
     expect(sentTexts.join("")).toBe(longReply);
+  });
+
+  test("sends a complete ordinary text reply after a streamed preview", async () => {
+    const sentPlainTexts: string[] = [];
+    const streamingSends: Array<{ finish: boolean; text: string }> = [];
+    const fullReply = "这是完整回复，不能只停留在流式预览的几个字。";
+    const bubble = new StreamingTextBubble(async (text, finish) => {
+      streamingSends.push({ finish, text });
+    }, 0);
+
+    bubble.update("短预览");
+    await sleep(10);
+
+    await sendReplyToUser({
+      bubble,
+      command: TEST_COMMAND,
+      deps: createDeps(sentPlainTexts),
+      fullText: fullReply,
+      message: TEST_MESSAGE,
+      ctx: TEST_CONTEXT,
+    });
+
+    expect(streamingSends).toContainEqual({ finish: false, text: "短预览" });
+    expect(streamingSends).not.toContainEqual({ finish: true, text: "短预览" });
+    expect(sentPlainTexts.join("")).toBe(fullReply);
   });
 });

@@ -3,10 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
+  claimPidFile,
   clearAccountState,
   isProcessAlive,
   readPidFile,
   removePidFile,
+  removePidFileIfOwned,
   stopRunningInstance,
   writePidFile,
 } from "../storage/runtime-state";
@@ -25,6 +27,46 @@ describe("runtime pid file", () => {
 
     removePidFile(pidFile);
     expect(fs.existsSync(pidFile)).toBe(false);
+
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  });
+
+  test("removes the pid file only when it still belongs to the current process", () => {
+    const tempDir = makeTempDir();
+    const pidFile = path.join(tempDir, "opencode-wechat.pid");
+
+    writePidFile(111, pidFile);
+    removePidFileIfOwned(222, pidFile);
+    expect(readPidFile(pidFile)).toBe(111);
+
+    removePidFileIfOwned(111, pidFile);
+    expect(fs.existsSync(pidFile)).toBe(false);
+
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  });
+
+  test("claimPidFile refuses to overwrite a live owner", () => {
+    const tempDir = makeTempDir();
+    const pidFile = path.join(tempDir, "opencode-wechat.pid");
+
+    writePidFile(process.pid, pidFile);
+    const result = claimPidFile(12345, pidFile);
+
+    expect(result).toEqual({ status: "already-running", pid: process.pid });
+    expect(readPidFile(pidFile)).toBe(process.pid);
+
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  });
+
+  test("claimPidFile replaces a stale owner", () => {
+    const tempDir = makeTempDir();
+    const pidFile = path.join(tempDir, "opencode-wechat.pid");
+
+    writePidFile(0xfffffff, pidFile);
+    const result = claimPidFile(12345, pidFile);
+
+    expect(result).toEqual({ status: "claimed" });
+    expect(readPidFile(pidFile)).toBe(12345);
 
     fs.rmSync(tempDir, { force: true, recursive: true });
   });

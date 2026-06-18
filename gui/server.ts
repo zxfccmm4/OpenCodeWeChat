@@ -5,14 +5,7 @@
  * 通道进程以分离方式启动，日志写入 CHANNEL_LOG_FILE。
  */
 import { spawn } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
-import {
-  CHANNEL_LOG_FILE,
-  DEFAULT_BASE_URL,
-  GUI_HOSTNAME,
-  GUI_PORT,
-} from "../config";
+import { DEFAULT_BASE_URL, GUI_HOSTNAME, GUI_PORT } from "../config";
 import { fetchQRCode, pollQRStatus } from "../api/ilink";
 import { buildAccountFromStatus } from "../login/qr";
 import { loadCredentials, saveCredentials } from "../storage/credentials";
@@ -22,11 +15,8 @@ import {
   readPidFile,
   stopRunningInstance,
 } from "../storage/runtime-state";
-import { rotateChannelLogIfNeeded } from "../storage/channel-log";
+import { readChannelLogTail, spawnDetachedChannel } from "./channel-process";
 import { GUI_PAGE_HTML } from "./page";
-
-const PROJECT_ROOT = path.resolve(import.meta.dir, "..");
-const MAX_LOG_LINES = 1000;
 
 export type GuiDeps = {
   clearAccountState: typeof clearAccountState;
@@ -76,64 +66,9 @@ async function renderQrAscii(content: string): Promise<string> {
   });
 }
 
-/**
- * 解析启动通道的命令。
- * 源码运行: bun index.ts；编译产物运行（虚拟文件系统里没有 index.ts）:
- * 启动同目录下的主程序二进制。
- */
-function resolveChannelCommand(): {
-  readonly args: string[];
-  readonly command: string;
-  readonly cwd: string;
-} {
-  const sourceEntry = path.join(PROJECT_ROOT, "index.ts");
-  if (fs.existsSync(sourceEntry)) {
-    return { args: [sourceEntry], command: process.execPath, cwd: PROJECT_ROOT };
-  }
-  const exeDir = path.dirname(process.execPath);
-  const mainBinary = process.platform === "win32"
-    ? "OpenCodeWeChat.exe"
-    : "OpenCodeWeChat";
-  return {
-    args: [],
-    command: path.join(exeDir, mainBinary),
-    cwd: path.dirname(exeDir),
-  };
-}
-
-function spawnDetachedChannel(): void {
-  rotateChannelLogIfNeeded();
-  fs.mkdirSync(path.dirname(CHANNEL_LOG_FILE), { recursive: true });
-  const logFd = fs.openSync(CHANNEL_LOG_FILE, "a");
-  try {
-    const stamp = new Date().toISOString();
-    fs.writeSync(logFd, `\n===== ${stamp} 由 GUI 控制台启动 =====\n`);
-    const channel = resolveChannelCommand();
-    const child = spawn(channel.command, channel.args, {
-      cwd: channel.cwd,
-      detached: true,
-      env: process.env,
-      stdio: ["ignore", logFd, logFd],
-    });
-    child.unref();
-  } finally {
-    fs.closeSync(logFd);
-  }
-}
-
-export function readChannelLogTail(lines: number): string {
-  const requested = Math.min(Math.max(lines, 1), MAX_LOG_LINES);
-  try {
-    const raw = fs.readFileSync(CHANNEL_LOG_FILE, "utf-8");
-    const allLines = raw.split("\n");
-    return allLines.slice(-requested).join("\n").trim();
-  } catch {
-    return "";
-  }
-}
-
 export function createGuiApp(deps: GuiDeps = DEFAULT_GUI_DEPS) {
   let loginSession: { qrcode: string } | null = null;
+  let channelLaunchPending = false;
 
   async function handle(req: Request): Promise<Response> {
     const url = new URL(req.url);
@@ -148,6 +83,7 @@ export function createGuiApp(deps: GuiDeps = DEFAULT_GUI_DEPS) {
       case "GET /api/status": {
         const pid = deps.readPidFile();
         const running = pid !== null && deps.isProcessAlive(pid);
+        if (running) channelLaunchPending = false;
         const account = deps.loadCredentials();
         return json({
           account: account
@@ -165,16 +101,22 @@ export function createGuiApp(deps: GuiDeps = DEFAULT_GUI_DEPS) {
       case "POST /api/start": {
         const pid = deps.readPidFile();
         if (pid !== null && deps.isProcessAlive(pid)) {
+          channelLaunchPending = false;
           return json({ message: `通道已在运行 (pid ${pid})` });
+        }
+        if (channelLaunchPending) {
+          return json({ message: "通道启动中，请观察下方日志" });
         }
         if (!deps.loadCredentials()) {
           return json({ error: "未登录微信，请先扫码登录" }, 409);
         }
+        channelLaunchPending = true;
         deps.spawnChannel();
         return json({ message: "通道启动中，请观察下方日志" });
       }
 
       case "POST /api/stop": {
+        channelLaunchPending = false;
         const result = await deps.stopRunningInstance();
         return json({
           message: result === "stopped" ? "已停止通道" : "通道当前未运行",
@@ -182,6 +124,7 @@ export function createGuiApp(deps: GuiDeps = DEFAULT_GUI_DEPS) {
       }
 
       case "POST /api/logout": {
+        channelLaunchPending = false;
         const stopResult = await deps.stopRunningInstance();
         const removed = deps.clearAccountState();
         const stopNote = stopResult === "stopped" ? "已停止通道，" : "";
@@ -193,6 +136,7 @@ export function createGuiApp(deps: GuiDeps = DEFAULT_GUI_DEPS) {
 
       case "POST /api/login": {
         // 凭据变更需要重启通道才生效，扫码前先停掉
+        channelLaunchPending = false;
         await deps.stopRunningInstance();
         const qr = await deps.fetchQRCode(DEFAULT_BASE_URL);
         loginSession = { qrcode: qr.qrcode };

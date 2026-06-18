@@ -1,6 +1,7 @@
 import { getBotConfig, sendTypingStatus } from "../api/ilink";
 import {
   CHANNEL_VERSION,
+  TYPING_MAX_DURATION_MS,
   TYPING_REFRESH_INTERVAL_MS,
   TYPING_TICKET_TTL_MS,
 } from "../config";
@@ -92,12 +93,17 @@ export async function startTypingIndicator(
   const refresher = setInterval(() => {
     void sendStatus(TYPING_STATUS_TYPING);
   }, TYPING_REFRESH_INTERVAL_MS);
+  const maxDurationTimer = setTimeout(() => {
+    void stop();
+  }, TYPING_MAX_DURATION_MS);
 
   let stopped = false;
-  return async () => {
+  const stop = async () => {
     if (stopped) return;
     stopped = true;
     clearInterval(refresher);
+    clearTimeout(maxDurationTimer);
     await sendStatus(TYPING_STATUS_CANCEL);
   };
+  return stop;
 }

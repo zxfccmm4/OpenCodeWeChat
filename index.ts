@@ -4,7 +4,8 @@ import { startPolling } from "./polling/loop";
 import { startOpencode } from "./opencode/client";
 import { DEFAULT_BASE_URL } from "./config";
 import { installChannelLogTee } from "./storage/channel-log";
-import { removePidFile, writePidFile } from "./storage/runtime-state";
+import { isOpencodeToolChild } from "./runtime/launch-guard";
+import { claimPidFile, removePidFileIfOwned } from "./storage/runtime-state";
 import type { OpencodeSession } from "./opencode/client";
 
 function log(msg: string) {
@@ -42,15 +43,24 @@ process.on("SIGTERM", () => {
 
 process.on("exit", () => {
   closeOpencodeSession();
-  removePidFile();
+  removePidFileIfOwned();
 });
 
 async function main() {
+  if (isOpencodeToolChild()) {
+    logError("检测到当前进程由 OpenCode 工具环境启动，拒绝递归启动微信通道。");
+    process.exit(1);
+  }
+
   // 终端启动时把日志分流到 channel.log，GUI 日志区才能看到
   if (installChannelLogTee()) {
     log("通道日志同步写入 channel.log（GUI 控制台可实时查看）");
   }
-  writePidFile();
+  const pidClaim = claimPidFile();
+  if (pidClaim.status === "already-running") {
+    log(`通道已在运行 (pid ${pidClaim.pid})，本次启动退出。`);
+    process.exit(0);
+  }
   let account = loadCredentials();
 
   if (!account) {

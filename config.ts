@@ -11,6 +11,10 @@ export const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";
 export const DEFAULT_CDN_BASE_URL = process.env.OPENCODE_WECHAT_CDN_BASE_URL?.trim()
   || "https://novac2c.cdn.weixin.qq.com/c2c";
 export const BOT_TYPE = "3";
+export const DEFAULT_OPENCODE_PROVIDER_ID =
+  process.env.OPENCODE_WECHAT_DEFAULT_PROVIDER_ID?.trim() || "Steveai";
+export const DEFAULT_OPENCODE_MODEL_ID =
+  process.env.OPENCODE_WECHAT_DEFAULT_MODEL_ID?.trim() || "gpt-5.4-mini";
 
 // File paths
 const HOME_DIR = process.env.HOME?.trim()
@@ -47,6 +51,14 @@ export const QR_LOGIN_DEADLINE_MS = 480_000;
 export const MAX_CONSECUTIVE_FAILURES = 3;
 export const BACKOFF_DELAY_MS = 30_000;
 export const RETRY_DELAY_MS = 2_000;
+const configuredPromptTimeoutMs = Number.parseInt(
+  process.env.OPENCODE_WECHAT_PROMPT_TIMEOUT_MS?.trim() || "",
+  10,
+);
+export const OPENCODE_PROMPT_TIMEOUT_MS = Number.isFinite(configuredPromptTimeoutMs)
+  && configuredPromptTimeoutMs > 0
+  ? configuredPromptTimeoutMs
+  : 60_000;
 // 同一条消息处理失败的最大重试次数，超过后跳过该消息并通知用户，
 // 防止一条无法处理的消息永久阻塞整个队列
 export const MAX_MESSAGE_ATTEMPTS = 3;
@@ -61,12 +73,18 @@ export const WECHAT_REPLY_TEXT_CHUNK_CHARS = Number.isFinite(configuredReplyText
   ? configuredReplyTextChunkChars
   : 500;
 
-// 流式回复：OpenCode 生成过程中以"同一气泡原地更新"的方式实时发往微信；设为 "0" 关闭
-export const ENABLE_STREAM_REPLIES = process.env.OPENCODE_WECHAT_STREAM_REPLIES !== "0";
+export const ENABLE_STREAM_REPLIES = process.env.OPENCODE_WECHAT_STREAM_REPLIES === "1";
 // 流式气泡的更新节流间隔（每次更新都会重发完整累计文本）
 export const STREAM_UPDATE_INTERVAL_MS = 1_200;
-// 微信"对方正在输入"指示器；设为 "0" 关闭
-export const ENABLE_TYPING_INDICATOR = process.env.OPENCODE_WECHAT_TYPING !== "0";
+export const ENABLE_TYPING_INDICATOR = process.env.OPENCODE_WECHAT_TYPING === "1";
+const configuredTypingMaxDurationMs = Number.parseInt(
+  process.env.OPENCODE_WECHAT_TYPING_MAX_MS?.trim() || "",
+  10,
+);
+export const TYPING_MAX_DURATION_MS = Number.isFinite(configuredTypingMaxDurationMs)
+  && configuredTypingMaxDurationMs > 0
+  ? configuredTypingMaxDurationMs
+  : 45_000;
 // 输入中状态的刷新间隔（指示器会自动过期，需要周期性续期）
 export const TYPING_REFRESH_INTERVAL_MS = 8_000;
 // typing_ticket 缓存时长

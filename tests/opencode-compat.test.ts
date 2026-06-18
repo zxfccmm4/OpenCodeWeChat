@@ -4,7 +4,11 @@ import {
   parseAgentResponse,
   resolveRequestedAgent,
 } from "../opencode/agents";
-import { createLegacySession, sendPrompt } from "../opencode/client";
+import {
+  createLegacySession,
+  isOpencodeConnectionError,
+  sendPrompt,
+} from "../opencode/client";
 import type { OpencodeSession } from "../opencode/client";
 import { parseOpencodeServerUrl } from "../opencode/server";
 
@@ -138,7 +142,59 @@ describe("createLegacySession", () => {
   });
 });
 
+describe("isOpencodeConnectionError", () => {
+  test("treats timed out prompt requests as restartable connection failures", () => {
+    expect(isOpencodeConnectionError(new Error("The operation timed out."))).toBe(true);
+  });
+});
+
 describe("sendPrompt", () => {
+  test("uses the OpenCodeWeChat default model when no explicit model is configured", async () => {
+    const previousProvider = process.env.OPENCODE_PROVIDER_ID;
+    const previousModel = process.env.OPENCODE_MODEL_ID;
+    delete process.env.OPENCODE_PROVIDER_ID;
+    delete process.env.OPENCODE_MODEL_ID;
+
+    const bodies: unknown[] = [];
+    const server = Bun.serve({
+      port: 0,
+      async fetch(request) {
+        bodies.push(await request.json());
+        return Response.json({
+          parts: [{ text: "ok", type: "text" }],
+        });
+      },
+    });
+    const session: OpencodeSession = {
+      agents: [],
+      authHeader: "Basic test",
+      close() {},
+      id: "session-1",
+      model: { providerID: "Steveai", modelID: "gpt-5.4-mini" },
+      serverUrl: server.url.toString(),
+    };
+
+    try {
+      expect(await sendPrompt(session, "hello")).toBe("ok");
+      expect(bodies[0]).toEqual({
+        model: { providerID: "Steveai", modelID: "gpt-5.4-mini" },
+        parts: [{ text: "hello", type: "text" }],
+      });
+    } finally {
+      if (previousProvider === undefined) {
+        delete process.env.OPENCODE_PROVIDER_ID;
+      } else {
+        process.env.OPENCODE_PROVIDER_ID = previousProvider;
+      }
+      if (previousModel === undefined) {
+        delete process.env.OPENCODE_MODEL_ID;
+      } else {
+        process.env.OPENCODE_MODEL_ID = previousModel;
+      }
+      server.stop(true);
+    }
+  });
+
   test("surfaces model errors hidden inside empty responses", async () => {
     const server = Bun.serve({
       port: 0,
@@ -224,6 +280,65 @@ describe("sendPrompt", () => {
         parts: [{ text: "hello", type: "text" }],
         system: "Oh My OpenAgent\nMCP\nSkill",
       });
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("aborts stuck prompt requests at the configured timeout", async () => {
+    const server = Bun.serve({
+      port: 0,
+      async fetch() {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return Response.json({
+          parts: [{ text: "too late", type: "text" }],
+        });
+      },
+    });
+    const session: OpencodeSession = {
+      agents: [],
+      authHeader: "Basic test",
+      close() {},
+      id: "session-1",
+      serverUrl: server.url.toString(),
+    };
+
+    try {
+      const startedAt = Date.now();
+      await expect(sendPrompt(session, "hello", { timeoutMs: 30 })).rejects.toThrow(
+        "The operation timed out.",
+      );
+      expect(Date.now() - startedAt).toBeLessThan(300);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("aborts stuck response bodies at the configured timeout", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        return new Response(new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("{"));
+          },
+        }));
+      },
+    });
+    const session: OpencodeSession = {
+      agents: [],
+      authHeader: "Basic test",
+      close() {},
+      id: "session-1",
+      serverUrl: server.url.toString(),
+    };
+
+    try {
+      const startedAt = Date.now();
+      await expect(sendPrompt(session, "hello", { timeoutMs: 30 })).rejects.toThrow(
+        "The operation timed out.",
+      );
+      expect(Date.now() - startedAt).toBeLessThan(300);
     } finally {
       server.stop(true);
     }
