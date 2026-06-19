@@ -10,8 +10,6 @@ import {
   OpencodeHttpError,
 } from "./http";
 import {
-  DEFAULT_OPENCODE_MODEL_ID,
-  DEFAULT_OPENCODE_PROVIDER_ID,
   OPENCODE_PROMPT_TIMEOUT_MS,
 } from "../config";
 import {
@@ -41,19 +39,16 @@ type PromptBody = {
   readonly system?: string;
 };
 
-function getModelOverride(): OpencodeModel | undefined {
+export function getModelOverride(): OpencodeModel | undefined {
   const providerID = process.env.OPENCODE_PROVIDER_ID?.trim();
   const modelID = process.env.OPENCODE_MODEL_ID?.trim();
 
   if (!providerID && !modelID) {
-    return {
-      providerID: DEFAULT_OPENCODE_PROVIDER_ID,
-      modelID: DEFAULT_OPENCODE_MODEL_ID,
-    };
+    return undefined;
   }
   if (!providerID || !modelID) {
     throw new Error(
-      "OPENCODE_PROVIDER_ID 和 OPENCODE_MODEL_ID 必须同时设置，或同时不设置以使用 OpenCodeWeChat 默认模型",
+      "OPENCODE_PROVIDER_ID 和 OPENCODE_MODEL_ID 必须同时设置；不设置时会使用 OpenCode / OMO 自己配置的默认模型",
     );
   }
 
@@ -164,7 +159,7 @@ export async function startOpencode(): Promise<OpencodeSession> {
     process.stderr.write(
       model
         ? `[opencode] 使用模型: ${model.providerID}/${model.modelID}\n`
-        : "[opencode] 使用 OpenCode 默认模型\n",
+        : "[opencode] 使用 OpenCode / OMO 配置的默认模型\n",
     );
     if (agent) process.stderr.write(`[opencode] 使用 agent: ${agent}\n`);
     if (agents.length > 0) process.stderr.write(`[opencode] 已发现 ${agents.length} 个 agent\n`);

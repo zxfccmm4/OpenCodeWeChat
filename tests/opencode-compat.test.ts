@@ -6,6 +6,7 @@ import {
 } from "../opencode/agents";
 import {
   createLegacySession,
+  getModelOverride,
   isOpencodeConnectionError,
   sendPrompt,
 } from "../opencode/client";
@@ -148,8 +149,79 @@ describe("isOpencodeConnectionError", () => {
   });
 });
 
+describe("getModelOverride", () => {
+  test("does not override the model when provider and model env vars are unset", () => {
+    const previousProvider = process.env.OPENCODE_PROVIDER_ID;
+    const previousModel = process.env.OPENCODE_MODEL_ID;
+    delete process.env.OPENCODE_PROVIDER_ID;
+    delete process.env.OPENCODE_MODEL_ID;
+
+    try {
+      expect(getModelOverride()).toBeUndefined();
+    } finally {
+      if (previousProvider === undefined) {
+        delete process.env.OPENCODE_PROVIDER_ID;
+      } else {
+        process.env.OPENCODE_PROVIDER_ID = previousProvider;
+      }
+      if (previousModel === undefined) {
+        delete process.env.OPENCODE_MODEL_ID;
+      } else {
+        process.env.OPENCODE_MODEL_ID = previousModel;
+      }
+    }
+  });
+
+  test("requires explicit provider and model overrides to be configured together", () => {
+    const previousProvider = process.env.OPENCODE_PROVIDER_ID;
+    const previousModel = process.env.OPENCODE_MODEL_ID;
+    process.env.OPENCODE_PROVIDER_ID = "github-copilot";
+    delete process.env.OPENCODE_MODEL_ID;
+
+    try {
+      expect(() => getModelOverride()).toThrow("必须同时设置");
+    } finally {
+      if (previousProvider === undefined) {
+        delete process.env.OPENCODE_PROVIDER_ID;
+      } else {
+        process.env.OPENCODE_PROVIDER_ID = previousProvider;
+      }
+      if (previousModel === undefined) {
+        delete process.env.OPENCODE_MODEL_ID;
+      } else {
+        process.env.OPENCODE_MODEL_ID = previousModel;
+      }
+    }
+  });
+
+  test("uses an explicit provider and model override when both are set", () => {
+    const previousProvider = process.env.OPENCODE_PROVIDER_ID;
+    const previousModel = process.env.OPENCODE_MODEL_ID;
+    process.env.OPENCODE_PROVIDER_ID = "github-copilot";
+    process.env.OPENCODE_MODEL_ID = "claude-sonnet-4.6";
+
+    try {
+      expect(getModelOverride()).toEqual({
+        providerID: "github-copilot",
+        modelID: "claude-sonnet-4.6",
+      });
+    } finally {
+      if (previousProvider === undefined) {
+        delete process.env.OPENCODE_PROVIDER_ID;
+      } else {
+        process.env.OPENCODE_PROVIDER_ID = previousProvider;
+      }
+      if (previousModel === undefined) {
+        delete process.env.OPENCODE_MODEL_ID;
+      } else {
+        process.env.OPENCODE_MODEL_ID = previousModel;
+      }
+    }
+  });
+});
+
 describe("sendPrompt", () => {
-  test("uses the OpenCodeWeChat default model when no explicit model is configured", async () => {
+  test("lets OpenCode or OMO use its configured default model when no explicit model is configured", async () => {
     const previousProvider = process.env.OPENCODE_PROVIDER_ID;
     const previousModel = process.env.OPENCODE_MODEL_ID;
     delete process.env.OPENCODE_PROVIDER_ID;
@@ -170,14 +242,12 @@ describe("sendPrompt", () => {
       authHeader: "Basic test",
       close() {},
       id: "session-1",
-      model: { providerID: "Steveai", modelID: "gpt-5.4-mini" },
       serverUrl: server.url.toString(),
     };
 
     try {
       expect(await sendPrompt(session, "hello")).toBe("ok");
       expect(bodies[0]).toEqual({
-        model: { providerID: "Steveai", modelID: "gpt-5.4-mini" },
         parts: [{ text: "hello", type: "text" }],
       });
     } finally {
@@ -191,6 +261,37 @@ describe("sendPrompt", () => {
       } else {
         process.env.OPENCODE_MODEL_ID = previousModel;
       }
+      server.stop(true);
+    }
+  });
+
+  test("passes an explicit provider and model only when the session is configured with one", async () => {
+    const bodies: unknown[] = [];
+    const server = Bun.serve({
+      port: 0,
+      async fetch(request) {
+        bodies.push(await request.json());
+        return Response.json({
+          parts: [{ text: "ok", type: "text" }],
+        });
+      },
+    });
+    const session: OpencodeSession = {
+      agents: [],
+      authHeader: "Basic test",
+      close() {},
+      id: "session-1",
+      model: { providerID: "github-copilot", modelID: "claude-sonnet-4.6" },
+      serverUrl: server.url.toString(),
+    };
+
+    try {
+      expect(await sendPrompt(session, "hello")).toBe("ok");
+      expect(bodies[0]).toEqual({
+        model: { providerID: "github-copilot", modelID: "claude-sonnet-4.6" },
+        parts: [{ text: "hello", type: "text" }],
+      });
+    } finally {
       server.stop(true);
     }
   });
@@ -221,6 +322,45 @@ describe("sendPrompt", () => {
     try {
       await expect(sendPrompt(session, "hello")).rejects.toThrow(
         "OpenCode 模型调用失败: Token refresh failed: 401",
+      );
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("explains provider/model lookup failures from OpenCode responses", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        return Response.json({
+          info: {
+            error: {
+              name: "ProviderModelNotFoundError",
+              data: {
+                providerID: "Steveai",
+                modelID: "gpt-5.4-mini",
+                suggestions: [],
+              },
+            },
+          },
+          parts: [],
+        });
+      },
+    });
+    const session: OpencodeSession = {
+      agents: [],
+      authHeader: "Basic test",
+      close() {},
+      id: "session-1",
+      serverUrl: server.url.toString(),
+    };
+
+    try {
+      await expect(sendPrompt(session, "hello")).rejects.toThrow(
+        "模型不存在或不可用: Steveai/gpt-5.4-mini",
+      );
+      await expect(sendPrompt(session, "hello")).rejects.toThrow(
+        "让 OpenCode / OMO 使用自己的模型配置",
       );
     } finally {
       server.stop(true);

@@ -11,11 +11,6 @@ export const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";
 export const DEFAULT_CDN_BASE_URL = process.env.OPENCODE_WECHAT_CDN_BASE_URL?.trim()
   || "https://novac2c.cdn.weixin.qq.com/c2c";
 export const BOT_TYPE = "3";
-export const DEFAULT_OPENCODE_PROVIDER_ID =
-  process.env.OPENCODE_WECHAT_DEFAULT_PROVIDER_ID?.trim() || "Steveai";
-export const DEFAULT_OPENCODE_MODEL_ID =
-  process.env.OPENCODE_WECHAT_DEFAULT_MODEL_ID?.trim() || "gpt-5.4-mini";
-
 // File paths
 const HOME_DIR = process.env.HOME?.trim()
   || process.env.USERPROFILE?.trim()

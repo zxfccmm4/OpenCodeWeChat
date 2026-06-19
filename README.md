@@ -376,10 +376,8 @@ OPENCODE_BIN=C:\Users\你的用户名\AppData\Roaming\npm\opencode.cmd
 |----------|--------|------|
 | `HOME` | 系统默认值 | 本地状态目录前缀 |
 | `OPENCODE_AGENT` | 未设置 | 可选，指定 OpenCode agent；`omo` / `sisyphus` 会映射到 OMO 主 agent，兼容新版 agent id 和旧版 agent name |
-| `OPENCODE_PROVIDER_ID` | 未设置 | 可选，覆盖 OpenCodeWeChat 默认 provider |
-| `OPENCODE_MODEL_ID` | 未设置 | 可选，覆盖 OpenCodeWeChat 默认 model；必须和 `OPENCODE_PROVIDER_ID` 同时设置 |
-| `OPENCODE_WECHAT_DEFAULT_PROVIDER_ID` | `Steveai` | 没有显式 `OPENCODE_PROVIDER_ID` 时使用的 provider |
-| `OPENCODE_WECHAT_DEFAULT_MODEL_ID` | `gpt-5.4-mini` | 没有显式 `OPENCODE_MODEL_ID` 时使用的 model；当前默认避开会超时的 `Steveai/gpt-5.5` |
+| `OPENCODE_PROVIDER_ID` | 未设置 | 可选，显式覆盖 OpenCode / OMO provider；通常建议留空 |
+| `OPENCODE_MODEL_ID` | 未设置 | 可选，显式覆盖 OpenCode / OMO model；必须和 `OPENCODE_PROVIDER_ID` 同时设置。未设置时不传 `model` 字段，由 OpenCode / OMO 使用自己的模型配置 |
 | `OPENCODE_BIN` | `opencode` | 可选，手动指定 OpenCode CLI 路径 |
 | `OPENCODE_SERVER_PASSWORD` | 未设置 | OpenCode 本地 HTTP 服务认证密码 |
 | `OPENCODE_SERVER_USERNAME` | `opencode` | OpenCode 本地 HTTP 服务认证用户名 |
@@ -403,7 +401,7 @@ OPENCODE_AGENT=omo bun index.ts
 OPENCODE_PROVIDER_ID=github-copilot OPENCODE_MODEL_ID=claude-sonnet-4.6 bun index.ts
 ```
 
-通常不要同时设置 `OPENCODE_AGENT` 和 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，让 OMO 按自己的 agent 配置选择模型会更自然。
+通常不要同时设置 `OPENCODE_AGENT` 和 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，让 OMO 按自己的 agent 配置选择模型会更自然。遇到 `ProviderModelNotFoundError` 时，先删除 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID` 后重启。
 
 ## 测试与验证
 

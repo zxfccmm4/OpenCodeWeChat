@@ -10,6 +10,12 @@ export function extractResponseError(data: unknown): string | undefined {
   const error = Reflect.get(info, "error");
   if (!isObject(error)) return undefined;
   const nested = Reflect.get(error, "data");
+  const providerID = isObject(nested) ? getString(nested, "providerID") : undefined;
+  const modelID = isObject(nested) ? getString(nested, "modelID") : undefined;
+  if (providerID || modelID) {
+    const configuredModel = [providerID, modelID].filter(Boolean).join("/");
+    return `模型不存在或不可用: ${configuredModel}。请删除 OPENCODE_PROVIDER_ID/OPENCODE_MODEL_ID，让 OpenCode / OMO 使用自己的模型配置；或改成 OpenCode 当前可用的 provider/model。`;
+  }
   const message = isObject(nested) ? getString(nested, "message") : undefined;
   return message || getString(error, "name");
 }
