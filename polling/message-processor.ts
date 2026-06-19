@@ -138,18 +138,28 @@ export async function processMessage(params: {
 
     ctx.log("发送至 OpenCode...");
     const latestPlanContext = deps.getLatestPlanContext(parsed.senderId);
+    const needsFileDelivery = needsWechatFileDeliveryHint(parsed.text);
     const compiledPrompt = [
       deps.buildOmoPrompt(promptText, latestPlanContext),
       WECHAT_MEDIA_PROMPT_HINT,
-      ...(needsWechatFileDeliveryHint(promptText) ? [WECHAT_FILE_DELIVERY_PROMPT_HINT] : []),
+      ...(needsFileDelivery ? [WECHAT_FILE_DELIVERY_PROMPT_HINT] : []),
     ].join("\n\n");
+    if (needsFileDelivery) {
+      ctx.log(`检测到文件交付任务，OpenCode 超时放宽至 ${ctx.longPromptTimeoutMs}ms`);
+    }
 
     const sendOnce = async (session: OpencodeSession): Promise<string> => {
       const promptOptions = buildOmoSendPromptOptions(omoCommand, session);
       if (promptOptions.agent) {
         ctx.log(`路由至 OpenCode agent: ${promptOptions.agent}`);
       }
-      return deps.sendPrompt(session, compiledPrompt, promptOptions);
+      return deps.sendPrompt(
+        session,
+        compiledPrompt,
+        needsFileDelivery
+          ? { ...promptOptions, timeoutMs: ctx.longPromptTimeoutMs }
+          : promptOptions,
+      );
     };
 
     const contextToken = parsed.contextToken

@@ -364,13 +364,15 @@ describe("processUpdateBatch", () => {
 
   test("adds a hard file-delivery contract for PDF requests", async () => {
     const prompts: string[] = [];
+    const timeoutMsValues: Array<number | undefined> = [];
 
     const result = await processUpdateBatch({
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps: createDeps({
-        async sendPrompt(_session, prompt) {
+        async sendPrompt(_session, prompt, options) {
           prompts.push(prompt);
+          timeoutMsValues.push(options?.timeoutMs);
           return "reply";
         },
       }),
@@ -388,6 +390,30 @@ describe("processUpdateBatch", () => {
     expect(prompts[0]).toContain("微信文件交付硬性要求");
     expect(prompts[0]).toContain("必须实际创建文件");
     expect(prompts[0]).toContain("[[wechat-file:/本机真实绝对路径/文件名.pdf|文件说明]]");
+    expect(timeoutMsValues).toEqual([300_000]);
+  });
+
+  test("keeps ordinary messages on the standard OpenCode timeout", async () => {
+    const timeoutMsValues: Array<number | undefined> = [];
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        async sendPrompt(_session, _prompt, options) {
+          timeoutMsValues.push(options?.timeoutMs);
+          return "reply";
+        },
+      }),
+      opencode: TEST_SESSION,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "普通问题" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(timeoutMsValues).toEqual([undefined]);
   });
 
   test("sends media directives as media messages instead of raw text", async () => {
@@ -730,6 +756,7 @@ describe("processUpdateBatch", () => {
         cdnBaseUrl: "https://cdn.example.com",
         channelVersion: "0.4.0",
         inboxDir: "/tmp/inbox",
+        longPromptTimeoutMs: 300_000,
         log() {},
         logError() {},
         maxMessageAttempts: 3,

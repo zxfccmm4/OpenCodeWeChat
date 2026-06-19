@@ -28,6 +28,7 @@ const TEST_CONTEXT: ProcessorContext = {
   cdnBaseUrl: "https://cdn.example.com",
   channelVersion: "0.4.0",
   inboxDir: "/tmp/inbox",
+  longPromptTimeoutMs: 300_000,
   log() {},
   logError() {},
   maxMessageAttempts: 3,

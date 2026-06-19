@@ -27,13 +27,14 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 - OpenCode 服务进程死亡后自动重建会话并重试当前消息；进程退出原因与崩溃输出完整记录到日志。
 - 会话创建遇瞬时 5xx 自动重试 3 次；模型调用失败不再表现为无声的"空响应"，错误原因直接可见。
 - 默认不再注入 `Steveai/gpt-5.4-mini` 等固定模型；未显式配置 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID` 时，由 OpenCode / OMO 按自身配置选择模型，避免新版 OpenCode 报 `ProviderModelNotFoundError`。
+- PDF/报告/文件交付等长任务会自动使用更长的 OpenCode 等待窗口（默认 300 秒，可用 `OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS` 调整），避免 60 秒短问答超时误杀正在生成的文件。
 - 修复 ClawBot 长回答尾部不完整的问题：最终回复按保守长度拆成多条微信文本发送，避免单条 text payload 被客户端截断。
 - 同一消息连续 3 次处理失败自动跳过并通知用户，杜绝毒消息永久阻塞队列；批次失败增加退避，不再热循环刷日志。
 - 媒体发送失败降级为失败原因文本，消息流程不中断。
 
 ### 测试
 
-- 自动化测试从 23 个扩展到 141 个，覆盖媒体收发与加解密、ClawBot 普通 `FINISH` 发送、长回复分片、SSE 聚合、OMO 默认模型选择、普通消息路由到 OMO 主 agent、PDF/文件交付协议、自愈重试、登出清理、GUI 接口等核心路径。
+- 自动化测试从 23 个扩展到 142 个，覆盖媒体收发与加解密、ClawBot 普通 `FINISH` 发送、长回复分片、SSE 聚合、OMO 默认模型选择、普通消息路由到 OMO 主 agent、PDF/文件交付协议、长任务超时窗口、自愈重试、登出清理、GUI 接口等核心路径。
 
 ## 下载
 
@@ -46,13 +47,13 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 ## SHA256 校验
 
 - `OpenCodeWeChat-0.4.0-macos-arm64.zip`
-  `20a9a3753d74b981085a98463ffe1090e41a66705c5b5c1b9c1ec3f1e6a5dec9`
+  `cbc516427bdc0d98f95844cadf0c4333a8aadcb66042b89bdceb1278cb1d7a2f`
 
 - `OpenCodeWeChat-0.4.0-macos-x64.zip`
-  `7d70a086fe71d2bea0707a279377533d92cd7d19096251fa83d92e15710d3d50`
+  `293e1506843098852431126e3e1a21228c7d89c22ebc1a03d4922d4f5876e2ef`
 
 - `OpenCodeWeChat-0.4.0-windows-x64.zip`
-  `3c8640a2791b6ca2ed66a94cfeb32708283240befe294d5bfaaa66c1fcf38078`
+  `cd02e52c27c716e1cbd50d2c1fd7b3b7281bf5145e7a4085361807e0361eb8b1`
 
 ## 快速上手
 

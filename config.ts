@@ -46,38 +46,38 @@ export const QR_LOGIN_DEADLINE_MS = 480_000;
 export const MAX_CONSECUTIVE_FAILURES = 3;
 export const BACKOFF_DELAY_MS = 30_000;
 export const RETRY_DELAY_MS = 2_000;
-const configuredPromptTimeoutMs = Number.parseInt(
-  process.env.OPENCODE_WECHAT_PROMPT_TIMEOUT_MS?.trim() || "",
-  10,
+
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const configured = Number.parseInt(process.env[name]?.trim() || "", 10);
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : fallback;
+}
+
+export const OPENCODE_PROMPT_TIMEOUT_MS = readPositiveIntEnv(
+  "OPENCODE_WECHAT_PROMPT_TIMEOUT_MS",
+  60_000,
 );
-export const OPENCODE_PROMPT_TIMEOUT_MS = Number.isFinite(configuredPromptTimeoutMs)
-  && configuredPromptTimeoutMs > 0
-  ? configuredPromptTimeoutMs
-  : 60_000;
+export const OPENCODE_LONG_PROMPT_TIMEOUT_MS = readPositiveIntEnv(
+  "OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS",
+  300_000,
+);
 // 同一条消息处理失败的最大重试次数，超过后跳过该消息并通知用户，
 // 防止一条无法处理的消息永久阻塞整个队列
 export const MAX_MESSAGE_ATTEMPTS = 3;
 export const MAX_MESSAGE_TEXT_LEN = 200;
 export const ENABLE_VERBOSE_MESSAGE_LOGS = process.env.OPENCODE_WECHAT_VERBOSE_LOGS === "1";
-const configuredReplyTextChunkChars = Number.parseInt(
-  process.env.OPENCODE_WECHAT_TEXT_CHUNK_CHARS?.trim() || "",
-  10,
+export const WECHAT_REPLY_TEXT_CHUNK_CHARS = readPositiveIntEnv(
+  "OPENCODE_WECHAT_TEXT_CHUNK_CHARS",
+  500,
 );
-export const WECHAT_REPLY_TEXT_CHUNK_CHARS = Number.isFinite(configuredReplyTextChunkChars)
-  && configuredReplyTextChunkChars > 0
-  ? configuredReplyTextChunkChars
-  : 500;
 
 export const ENABLE_STREAM_CAPTURE = process.env.OPENCODE_WECHAT_STREAM_CAPTURE !== "0";
 export const ENABLE_TYPING_INDICATOR = process.env.OPENCODE_WECHAT_TYPING === "1";
-const configuredTypingMaxDurationMs = Number.parseInt(
-  process.env.OPENCODE_WECHAT_TYPING_MAX_MS?.trim() || "",
-  10,
+export const TYPING_MAX_DURATION_MS = readPositiveIntEnv(
+  "OPENCODE_WECHAT_TYPING_MAX_MS",
+  45_000,
 );
-export const TYPING_MAX_DURATION_MS = Number.isFinite(configuredTypingMaxDurationMs)
-  && configuredTypingMaxDurationMs > 0
-  ? configuredTypingMaxDurationMs
-  : 45_000;
 // 输入中状态的刷新间隔（指示器会自动过期，需要周期性续期）
 export const TYPING_REFRESH_INTERVAL_MS = 8_000;
 // typing_ticket 缓存时长

@@ -68,6 +68,7 @@ export type ProcessorContext = {
   readonly channelVersion: string;
   readonly cdnBaseUrl: string;
   readonly inboxDir: string;
+  readonly longPromptTimeoutMs: number;
   readonly maxMessageAttempts: number;
   readonly typingMaxDurationMs: number;
   readonly verboseLogs: boolean;

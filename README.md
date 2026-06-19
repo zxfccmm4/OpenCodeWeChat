@@ -388,6 +388,7 @@ OPENCODE_BIN=C:\Users\你的用户名\AppData\Roaming\npm\opencode.cmd
 | `OPENCODE_WECHAT_TYPING` | `0` | 设为 `1` 开启微信"对方正在输入"指示器 |
 | `OPENCODE_WECHAT_TYPING_MAX_MS` | `45000` | 输入中指示器开启后，单条消息最多保持的毫秒数，超时会自动取消 |
 | `OPENCODE_WECHAT_PROMPT_TIMEOUT_MS` | `60000` | 单次 OpenCode 请求最大等待毫秒数，超时会中断并进入重试/跳过逻辑 |
+| `OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS` | `300000` | PDF/报告/文件交付等长任务的 OpenCode 请求最大等待毫秒数 |
 | `OPENCODE_WECHAT_TEXT_CHUNK_CHARS` | `500` | 可选，长回复最终发送时每条微信文本的最大字符数 |
 | `OPENCODE_WECHAT_VERBOSE_LOGS` | `0` | 设为 `1` 时输出消息摘要；默认只记录消息长度，避免正文落盘 |
 
