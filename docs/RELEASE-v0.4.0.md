@@ -18,6 +18,7 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 
 - 新增浏览器图形控制台（`OpenCodeWeChatGUI.command` / `.cmd` / `.sh` 或 `bun run gui`）：状态面板、启动/停止、页面内扫码登录、登出、实时日志，仅绑定 127.0.0.1。
 - 新增三平台菜单启动器（macOS / Windows / Linux），覆盖登录、登出、启动、停止、打开 GUI。
+- macOS 一键包的可执行文件现在会在打包时做 ad-hoc codesign，启动脚本会自动清理下载隔离属性，降低双击时被系统误报"已损坏"的概率。
 - 新增登出能力：`bun scripts/logout.ts` 停止通道并清除本机凭据与会话状态（收件箱文件保留）。
 - 通道日志统一写入 `channel.log`（终端启动自动分流，超 5MB 轮转），GUI 实时滚动展示。
 - 一键打包升级：每个平台分发包新增 GUI 控制台二进制与对应启动器，打包后的 GUI 可直接拉起同目录主程序。
@@ -47,13 +48,13 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 ## SHA256 校验
 
 - `OpenCodeWeChat-0.4.0-macos-arm64.zip`
-  `cbc516427bdc0d98f95844cadf0c4333a8aadcb66042b89bdceb1278cb1d7a2f`
+  `7532cd384a9365fc8b9b3de7ef257eab751a020ea420bb0824caf169b67214cb`
 
 - `OpenCodeWeChat-0.4.0-macos-x64.zip`
-  `293e1506843098852431126e3e1a21228c7d89c22ebc1a03d4922d4f5876e2ef`
+  `8a92a39e0c27f279c933ba39b2199c2a738df6bb1a15c2b67e4e0be489c8e3c9`
 
 - `OpenCodeWeChat-0.4.0-windows-x64.zip`
-  `cd02e52c27c716e1cbd50d2c1fd7b3b7281bf5145e7a4085361807e0361eb8b1`
+  `732203671b4dd794344f6bf8d318519388389c06c6d2cccd08b0e08a9daa3076`
 
 ## 快速上手
 

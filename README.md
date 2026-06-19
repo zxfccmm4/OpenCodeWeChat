@@ -352,6 +352,12 @@ OPENCODE_BIN=C:\Users\你的用户名\AppData\Roaming\npm\opencode.cmd
 
 注意：`package:current` 只面向 macOS / Windows。Linux 主要走源码部署方式。
 
+macOS 如果双击后提示 `OpenCodeWeChat-GUI 已损坏，无法打开`，通常是 GitHub 下载隔离属性导致。请下载最新版启动包重新解压；仍有问题时，在解压后的包目录执行：
+
+```bash
+xattr -dr com.apple.quarantine .
+```
+
 ## 本地状态文件
 
 默认目录：

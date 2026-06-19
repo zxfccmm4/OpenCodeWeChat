@@ -167,6 +167,10 @@ function uniqueTargets(targets: TargetKey[]): TargetKey[] {
   return targets.filter((target, index) => targets.indexOf(target) === index);
 }
 
+function isMacTarget(target: PackageTarget): boolean {
+  return target.compileTarget.startsWith("bun-darwin-");
+}
+
 function compileExecutable(target: PackageTarget, entryFile: string, outputFile: string) {
   const args = [
     "build",
@@ -195,6 +199,32 @@ function compileExecutable(target: PackageTarget, entryFile: string, outputFile:
     throw new Error(
       `编译 ${path.basename(outputFile)} 失败。首次跨平台打包时，Bun 可能需要联网下载目标 runtime。`,
     );
+  }
+
+  if (isMacTarget(target)) {
+    codesignMacExecutable(outputFile);
+  }
+}
+
+function codesignMacExecutable(filePath: string) {
+  if (process.platform !== "darwin") {
+    console.warn(`[package] 跳过 macOS 签名（当前平台不是 macOS）: ${filePath}`);
+    return;
+  }
+
+  const result = spawnSync("/usr/bin/codesign", [
+    "--force",
+    "--sign",
+    "-",
+    "--timestamp=none",
+    filePath,
+  ], {
+    cwd: PROJECT_ROOT,
+    stdio: "inherit",
+  });
+
+  if (result.status !== 0) {
+    throw new Error(`签名 ${path.basename(filePath)} 失败。请确认 /usr/bin/codesign 可用。`);
   }
 }
 
@@ -279,6 +309,10 @@ function buildMacLauncher(executableName: string): string {
     "fi",
     "",
     "export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH\"",
+    "",
+    "if command -v xattr >/dev/null 2>&1; then",
+    "  xattr -dr com.apple.quarantine \"$SCRIPT_DIR\" >/dev/null 2>&1 || true",
+    "fi",
     "",
     "echo \"OpenCodeWeChat\"",
     "echo",
