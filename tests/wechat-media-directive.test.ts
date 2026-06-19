@@ -1,10 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "bun:test";
-import {
-  buildStreamPreview,
-  parseWechatReplyParts,
-} from "../core/wechat-media-directive";
+import { parseWechatReplyParts } from "../core/wechat-media-directive";
 
 describe("parseWechatReplyParts", () => {
   test("splits text and media directives in order", () => {
@@ -85,24 +82,5 @@ describe("parseWechatReplyParts", () => {
     expect(parseWechatReplyParts("[[ wechat-image : /tmp/a.png | 图 ]]")).toEqual([
       { filePath: "/tmp/a.png", kind: "media", mediaKind: "image", text: "图" },
     ]);
-  });
-});
-
-describe("buildStreamPreview", () => {
-  test("strips complete media directives from the preview", () => {
-    expect(
-      buildStreamPreview("结果如下\n[[wechat-image:/tmp/a.png|图]]\n说明文字"),
-    ).toBe("结果如下\n\n说明文字");
-  });
-
-  test("hides a trailing half-written directive", () => {
-    expect(buildStreamPreview("文件已生成\n[[wechat-file:/tmp/repo")).toBe("文件已生成");
-    expect(buildStreamPreview("文件已生成\n[[")).toBe("文件已生成");
-  });
-
-  test("keeps closed brackets that are not directives", () => {
-    expect(buildStreamPreview("数组写法 [[1, 2], [3, 4]] 保持原样")).toBe(
-      "数组写法 [[1, 2], [3, 4]] 保持原样",
-    );
   });
 });

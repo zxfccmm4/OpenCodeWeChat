@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OpenCodeWeChat 产品介绍</title>
-  <meta name="description" content="OpenCodeWeChat 把微信变成 OpenCode 与 Oh My OpenAgent 的移动入口：流式回复、双向媒体收发、图形控制台。">
+  <meta name="description" content="OpenCodeWeChat 把微信变成 OpenCode 与 Oh My OpenAgent 的移动入口：完整回复保护、双向媒体收发、图形控制台。">
   <style>
     :root {
       color-scheme: light;
@@ -693,7 +693,7 @@
             <span class="line">移动入口</span>
           </h1>
           <p class="hero-lede">
-            OpenCodeWeChat 通过微信官方 ClawBot ilink API，把你的微信消息桥接到本地 OpenCode 会话。出门在外，也能在微信里发起规划、续跑任务、收发文件，回复像元宝一样流式增长。
+            OpenCodeWeChat 通过微信官方 ClawBot ilink API，把你的微信消息桥接到本地 OpenCode 会话。出门在外，也能在微信里发起规划、续跑任务、收发文件，并尽量完整地拿到长回复。
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#launch">查看一键运行方式</a>
@@ -705,8 +705,8 @@
               <span>聊天界面直接发起 AI 开发任务，文件、图片发过去就能处理。</span>
             </div>
             <div class="proof">
-              <strong>真流式回复</strong>
-              <span>"对方正在输入..." + 单条气泡原地增长，长任务不再干等。</span>
+              <strong>完整回复保护</strong>
+              <span>OpenCode SSE 辅助补齐，微信侧按普通文本完整分片到达。</span>
             </div>
             <div class="proof">
               <strong>本地 OpenCode</strong>
@@ -730,7 +730,7 @@
       <div class="shell">
         <div class="section-head">
           <h2>不是聊天转发器，而是可随身携带的开发入口</h2>
-          <p>它把流式回复、双向媒体收发、OpenCode 会话、Oh My OpenAgent 上下文、故障自愈和图形控制台组合成一个可日常使用的工具。</p>
+          <p>它把完整回复保护、双向媒体收发、OpenCode 会话、Oh My OpenAgent 上下文、故障自愈和图形控制台组合成一个可日常使用的工具。</p>
         </div>
         <div class="feature-grid">
           <article class="feature">
@@ -740,8 +740,8 @@
           </article>
           <article class="feature">
             <span class="num">02</span>
-            <h3>像元宝一样的流式回复</h3>
-            <p>订阅 OpenCode SSE 增量，单条微信气泡原地增长直至收口，处理期间显示"对方正在输入..."，长任务不再是干等一堵墙。</p>
+            <h3>长回复完整送达</h3>
+            <p>订阅 OpenCode SSE 增量作为本地补齐来源，微信侧只发送完整普通文本，长回复按安全长度分片。</p>
           </article>
           <article class="feature">
             <span class="num">03</span>
@@ -814,8 +814,8 @@
             <span>自动拉起 opencode serve，订阅 SSE 增量；服务死亡自动重建。</span>
           </div>
           <div class="flow-step">
-            <strong>微信流式收结果</strong>
-            <span>回复在同一气泡里原地增长直至收口，产物文件随后发回可下载。</span>
+            <strong>微信分块收结果</strong>
+            <span>长回复在生成完成后按普通文本完整分片送达，产物文件随后发回可下载。</span>
           </div>
         </div>
       </div>

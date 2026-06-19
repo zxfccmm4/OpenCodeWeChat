@@ -28,20 +28,6 @@ export const WECHAT_MEDIA_PROMPT_HINT = [
 
 const DIRECTIVE_RE = /\[\[\s*wechat-(image|video|file)\s*[:：]([^\]\r\n]+)\]\]/gi;
 
-/**
- * 流式气泡的预览清洗：去掉完整的媒体指令（随后会作为真实媒体消息发送），
- * 并截掉结尾尚未生成完的半截指令，避免指令原文闪现在微信气泡里。
- */
-export function buildStreamPreview(text: string): string {
-  let preview = text.replace(DIRECTIVE_RE, "").replace(/\n{3,}/g, "\n\n");
-  // 结尾的半截指令（如 "[[wechat-file:/pa"）先藏起来，等闭合后再处理
-  const partialIndex = preview.lastIndexOf("[[");
-  if (partialIndex >= 0 && !preview.slice(partialIndex).includes("]]")) {
-    preview = preview.slice(0, partialIndex);
-  }
-  return preview.trimEnd();
-}
-
 export function parseWechatReplyParts(text: string): readonly WechatReplyPart[] {
   const parts: WechatReplyPart[] = [];
   let cursor = 0;

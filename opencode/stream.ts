@@ -4,13 +4,16 @@
  * 事件协议（兼容 v1 和 v2）:
  *   - message.part.updated: part 快照（含 type、累计 text）+ 可选 delta
  *     v1 服务器只发这一种事件，增量文本通过 properties.delta 传递
- *   - message.part.delta (仅 v2): 字段级增量，field="text" 时为文本增量
+ *   - message.part.delta: 字段级增量，field="text" 时更新文本；部分版本
+ *     会把累计全文放在 delta 里，聚合时需要去重
+ *   - session.next.text.delta: 新版原生事件流的文本增量
  *   - 连接建立时服务端可能回放历史快照；只有出现过 delta 的消息才视为
  *     "本轮生成中"，避免把上一轮回复重复发给用户。
  */
 import type { OpencodeSession } from "./types";
 
 export interface ReplyStreamHandle {
+  waitForIdle(timeoutMs: number): Promise<void>;
   /** 中止订阅，返回当前累计文本 */
   stop(): string;
 }
@@ -27,6 +30,12 @@ type PartState = {
   type?: string;
 };
 
+type TextState = {
+  messageId: string;
+  order: number;
+  text: string;
+};
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -41,13 +50,16 @@ export function createReplyTextAggregator(
   onText: (cumulative: string) => void,
 ): ReplyTextAggregator {
   const parts = new Map<string, PartState>();
+  const nextTexts = new Map<string, TextState>();
   const liveMessages = new Set<string>();
   let order = 0;
   let last = "";
 
   const cumulative = (): string =>
-    [...parts.values()]
-      .filter((p) => p.type === "text" && liveMessages.has(p.messageId))
+    [
+      ...parts.values().filter((p) => p.type === "text" && liveMessages.has(p.messageId)),
+      ...nextTexts.values().filter((p) => liveMessages.has(p.messageId)),
+    ]
       .sort((a, b) => a.order - b.order)
       .map((p) => p.text)
       .join("\n");
@@ -67,6 +79,23 @@ export function createReplyTextAggregator(
       parts.set(partId, state);
     }
     return state;
+  };
+
+  const ensureNextText = (textId: string, messageId: string): TextState => {
+    let state = nextTexts.get(textId);
+    if (!state) {
+      state = { messageId, order: order++, text: "" };
+      nextTexts.set(textId, state);
+    }
+    return state;
+  };
+
+  const applyTextDelta = (current: string, delta: string): string => {
+    if (!current) return delta;
+    if (!delta) return current;
+    if (delta === current || current.endsWith(delta)) return current;
+    if (delta.startsWith(current)) return delta;
+    return current + delta;
   };
 
   return {
@@ -110,7 +139,43 @@ export function createReplyTextAggregator(
         liveMessages.add(messageId);
         const state = ensurePart(partId, messageId);
         state.type ??= "text";
-        state.text += getStr(props, "delta") ?? "";
+        state.text = applyTextDelta(state.text, getStr(props, "delta") ?? "");
+        emit();
+        return;
+      }
+
+      if (type === "session.next.text.started") {
+        if (getStr(props, "sessionID") !== sessionId) return;
+        const textId = getStr(props, "textID");
+        const messageId = getStr(props, "assistantMessageID");
+        if (!textId || !messageId) return;
+        liveMessages.add(messageId);
+        ensureNextText(textId, messageId);
+        emit();
+        return;
+      }
+
+      if (type === "session.next.text.delta") {
+        if (getStr(props, "sessionID") !== sessionId) return;
+        const textId = getStr(props, "textID");
+        const messageId = getStr(props, "assistantMessageID");
+        if (!textId || !messageId) return;
+        liveMessages.add(messageId);
+        const state = ensureNextText(textId, messageId);
+        state.text = applyTextDelta(state.text, getStr(props, "delta") ?? "");
+        emit();
+        return;
+      }
+
+      if (type === "session.next.text.ended") {
+        if (getStr(props, "sessionID") !== sessionId) return;
+        const textId = getStr(props, "textID");
+        const messageId = getStr(props, "assistantMessageID");
+        if (!textId || !messageId) return;
+        liveMessages.add(messageId);
+        const state = ensureNextText(textId, messageId);
+        const text = getStr(props, "text");
+        if (text !== undefined) state.text = text;
         emit();
       }
     },
@@ -136,6 +201,19 @@ export async function openReplyTextStream(params: {
   const body = res.body;
 
   const aggregator = createReplyTextAggregator(params.session.id, params.onText);
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let resolveIdle: (() => void) | null = null;
+
+  const markActivity = (): void => {
+    if (!resolveIdle) return;
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      idleTimer = null;
+      const resolve = resolveIdle;
+      resolveIdle = null;
+      resolve?.();
+    }, 100);
+  };
 
   void (async () => {
     const reader = body.getReader();
@@ -153,6 +231,7 @@ export async function openReplyTextStream(params: {
           if (!line.startsWith("data: ")) continue;
           try {
             aggregator.handleEvent(JSON.parse(line.slice(6)));
+            markActivity();
           } catch {
             // 跳过无法解析的事件
           }
@@ -164,7 +243,28 @@ export async function openReplyTextStream(params: {
   })();
 
   return {
+    async waitForIdle(timeoutMs: number): Promise<void> {
+      if (timeoutMs <= 0) return;
+      await new Promise<void>((resolve) => {
+        resolveIdle = resolve;
+        markActivity();
+        setTimeout(() => {
+          if (idleTimer) {
+            clearTimeout(idleTimer);
+            idleTimer = null;
+          }
+          const finish = resolveIdle;
+          resolveIdle = null;
+          finish?.();
+        }, timeoutMs);
+      });
+    },
     stop(): string {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+      resolveIdle = null;
       controller.abort();
       return aggregator.current();
     },

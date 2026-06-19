@@ -73,9 +73,7 @@ export const WECHAT_REPLY_TEXT_CHUNK_CHARS = Number.isFinite(configuredReplyText
   ? configuredReplyTextChunkChars
   : 500;
 
-export const ENABLE_STREAM_REPLIES = process.env.OPENCODE_WECHAT_STREAM_REPLIES === "1";
-// 流式气泡的更新节流间隔（每次更新都会重发完整累计文本）
-export const STREAM_UPDATE_INTERVAL_MS = 1_200;
+export const ENABLE_STREAM_CAPTURE = process.env.OPENCODE_WECHAT_STREAM_CAPTURE !== "0";
 export const ENABLE_TYPING_INDICATOR = process.env.OPENCODE_WECHAT_TYPING === "1";
 const configuredTypingMaxDurationMs = Number.parseInt(
   process.env.OPENCODE_WECHAT_TYPING_MAX_MS?.trim() || "",

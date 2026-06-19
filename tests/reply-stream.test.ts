@@ -11,6 +11,10 @@ function partDelta(props: Record<string, unknown>) {
   return { properties: props, type: "message.part.delta" };
 }
 
+function nextTextDelta(props: Record<string, unknown>) {
+  return { properties: props, type: "session.next.text.delta" };
+}
+
 describe("createReplyTextAggregator", () => {
   test("accumulates text deltas for live messages", () => {
     const seen: string[] = [];
@@ -110,6 +114,52 @@ describe("createReplyTextAggregator", () => {
     }));
 
     expect(agg.current()).toBe("增量内容的完整快照");
+  });
+
+  test("deduplicates cumulative delta payloads from newer OpenCode streams", () => {
+    const seen: string[] = [];
+    const agg = createReplyTextAggregator(SESSION, (t) => seen.push(t));
+
+    agg.handleEvent(partUpdated({
+      id: "p1", messageID: "m1", sessionID: SESSION, text: "", type: "text",
+    }));
+    agg.handleEvent(partDelta({
+      delta: "我是助手", field: "text", messageID: "m1", partID: "p1", sessionID: SESSION,
+    }));
+    agg.handleEvent(partDelta({
+      delta: "我是助手能帮你处理事", field: "text", messageID: "m1", partID: "p1", sessionID: SESSION,
+    }));
+    agg.handleEvent(partDelta({
+      delta: "我是助手能帮你处理事情。", field: "text", messageID: "m1", partID: "p1", sessionID: SESSION,
+    }));
+
+    expect(agg.current()).toBe("我是助手能帮你处理事情。");
+    expect(seen).toEqual([
+      "我是助手",
+      "我是助手能帮你处理事",
+      "我是助手能帮你处理事情。",
+    ]);
+  });
+
+  test("handles native session.next text events", () => {
+    const seen: string[] = [];
+    const agg = createReplyTextAggregator(SESSION, (t) => seen.push(t));
+
+    agg.handleEvent(nextTextDelta({
+      assistantMessageID: "msg_1",
+      delta: "第一段",
+      sessionID: SESSION,
+      textID: "txt_1",
+    }));
+    agg.handleEvent(nextTextDelta({
+      assistantMessageID: "msg_1",
+      delta: "，第二段",
+      sessionID: SESSION,
+      textID: "txt_1",
+    }));
+
+    expect(agg.current()).toBe("第一段，第二段");
+    expect(seen).toEqual(["第一段", "第一段，第二段"]);
   });
 });
 

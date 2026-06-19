@@ -253,33 +253,6 @@ export async function sendTextMessage(
   }, channelVersion);
 }
 
-/**
- * 流式文本：用同一个 client_id 重复发送，message_state=1(GENERATING) 表示
- * 内容仍在生成（微信端原地更新气泡），最后一次用 state=2(FINISH) 收口。
- */
-export async function sendStreamingText(
-  baseUrl: string,
-  token: string,
-  params: {
-    readonly clientId: string;
-    readonly contextToken: string;
-    readonly finish: boolean;
-    readonly text: string;
-    readonly to: string;
-  },
-  channelVersion: string,
-): Promise<void> {
-  await sendWeixinMessage(baseUrl, token, {
-    from_user_id: "",
-    to_user_id: params.to,
-    client_id: params.clientId,
-    message_type: 2,
-    message_state: params.finish ? 2 : 1,
-    item_list: [{ type: 1, text_item: { text: params.text } }],
-    context_token: params.contextToken,
-  }, channelVersion);
-}
-
 export function buildCdnBaseUrl(baseUrl: string): string {
   const parsed = new URL(baseUrl);
   parsed.hostname = parsed.hostname.replace(/^ilinkai\./, "ilinkcdn.");

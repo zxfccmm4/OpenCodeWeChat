@@ -58,7 +58,6 @@ function createDeps(overrides: Partial<MessageProcessorDeps> = {}): TestDeps {
     async sendPrompt() {
       return "reply";
     },
-    async sendStreamingText() {},
     async sendTextMessage() {},
     async startTypingIndicator() {
       return async () => {};
@@ -79,11 +78,10 @@ function createUserMessage(text: string): WeixinMessage {
   };
 }
 
-describe("processUpdateBatch streaming preview replies", () => {
+describe("processUpdateBatch OpenCode stream capture", () => {
   test("sends the complete answer as ordinary text when streaming is not configured", async () => {
     resetMessageAttemptTracking();
     const plainTexts: string[] = [];
-    let streamingCalls = 0;
     let typingStarts = 0;
     let typingStops = 0;
     const fullText = "我是 Sisyphus，基于 GPT-5.5 的 OhMyOpenCode 编排智能体。";
@@ -94,9 +92,6 @@ describe("processUpdateBatch streaming preview replies", () => {
       deps: createDeps({
         async sendPrompt() {
           return fullText;
-        },
-        async sendStreamingText() {
-          streamingCalls += 1;
         },
         async sendTextMessage(_baseUrl, _token, _to, text) {
           plainTexts.push(text);
@@ -118,21 +113,21 @@ describe("processUpdateBatch streaming preview replies", () => {
     expect(result.batchSucceeded).toBe(true);
     expect(typingStarts).toBe(1);
     expect(typingStops).toBe(1);
-    expect(streamingCalls).toBe(0);
     expect(plainTexts.join("")).toBe(fullText);
   });
 
-  test("streams a preview bubble and sends the complete answer as ordinary text", async () => {
+  test("uses captured OpenCode SSE only as a final complete-text fallback", async () => {
     resetMessageAttemptTracking();
-    const bubbleSends: Array<{ finish: boolean; text: string }> = [];
     const plainTexts: string[] = [];
     let typingStarts = 0;
     let typingStops = 0;
     let streamStops = 0;
-    const previewText = "甲".repeat(130);
-    const tail = "乙".repeat(40);
-    const fullText = `${previewText}\n\n${tail}`;
+    let waitedForIdle = false;
     let pushText: ((cumulative: string) => void) | null = null;
+    const firstBlock = "甲".repeat(210);
+    const secondBlock = "乙".repeat(220);
+    const tail = "最终收尾";
+    const fullStreamText = `${firstBlock}${secondBlock}${tail}`;
 
     const result = await processUpdateBatch({
       account: TEST_ACCOUNT,
@@ -141,19 +136,19 @@ describe("processUpdateBatch streaming preview replies", () => {
         async openReplyStream(_session, onText) {
           pushText = onText;
           return {
+            async waitForIdle() {
+              waitedForIdle = true;
+            },
             stop() {
               streamStops += 1;
-              return previewText;
+              return fullStreamText;
             },
           };
         },
         async sendPrompt() {
-          pushText?.(previewText);
-          await new Promise((resolve) => setTimeout(resolve, 20));
-          return fullText;
-        },
-        async sendStreamingText(_baseUrl, _token, params) {
-          bubbleSends.push({ finish: params.finish, text: params.text });
+          pushText?.(firstBlock);
+          pushText?.(`${firstBlock}${secondBlock}`);
+          return `${firstBlock}${secondBlock}`;
         },
         async sendTextMessage(_baseUrl, _token, _to, text) {
           plainTexts.push(text);
@@ -175,12 +170,8 @@ describe("processUpdateBatch streaming preview replies", () => {
     expect(result.batchSucceeded).toBe(true);
     expect(typingStarts).toBe(1);
     expect(typingStops).toBe(1);
+    expect(waitedForIdle).toBe(true);
     expect(streamStops).toBe(1);
-    const generating = bubbleSends.filter((send) => !send.finish);
-    const finished = bubbleSends.filter((send) => send.finish);
-    expect(generating.length).toBeGreaterThanOrEqual(1);
-    expect(generating[0]?.text).toBe(previewText);
-    expect(finished).toEqual([]);
-    expect(plainTexts.join("")).toBe(fullText);
+    expect(plainTexts).toEqual([fullStreamText]);
   });
 });

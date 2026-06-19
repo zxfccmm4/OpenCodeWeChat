@@ -1,13 +1,11 @@
 /**
  * 回复发送：把 OpenCode 返回的 fullText 发回微信用户。
  *
- * 拆成两步：先收口流式气泡（一条文本气泡），再把其中解析出的
- * 媒体指令作为独立媒体消息逐一发送。plan 模式下额外缓存最近计划。
+ * 文本按 ClawBot / OpenClaw SDK 的普通 FINISH 消息语义发送；长文本拆成
+ * 多条 FINISH 文本，媒体指令作为独立媒体消息逐一发送。plan 模式下额外缓存最近计划。
  */
-import type { StreamingTextBubble } from "../core/streaming-bubble";
 import { splitTextForWechat } from "../core/text-chunks";
 import { parseWechatReplyParts } from "../core/wechat-media-directive";
-import { WECHAT_REPLY_TEXT_CHUNK_CHARS } from "../config";
 import type { OmoCommand, OmoPlanContext } from "../core/omo-command";
 import type { ParsedMessage } from "../types/wechat";
 import type { MessageProcessorDeps, ProcessorContext } from "./message-processor-types";
@@ -40,14 +38,19 @@ async function sendTextChunks(params: {
 }
 
 export async function sendReplyToUser(params: {
-  readonly bubble: StreamingTextBubble | null;
   readonly command: OmoCommand;
   readonly deps: MessageProcessorDeps;
   readonly fullText: string;
   readonly message: ParsedMessage;
   readonly ctx: ProcessorContext;
 }): Promise<void> {
-  const { bubble, command, deps, fullText, message: parsed, ctx } = params;
+  const {
+    command,
+    deps,
+    fullText,
+    message: parsed,
+    ctx,
+  } = params;
   const { baseUrl, token } = ctx.account;
   const contextToken = parsed.contextToken ?? deps.getCachedContextToken(parsed.senderId);
   if (!contextToken) {
@@ -55,30 +58,17 @@ export async function sendReplyToUser(params: {
     return;
   }
 
-  // 文本走流式气泡收口（一条气泡），媒体指令随后作为独立消息发送
   const replyParts = parseWechatReplyParts(fullText);
   const finalText = replyParts
     .filter((part) => part.kind === "text")
     .map((part) => part.text)
     .join("\n\n");
-  const textChunks = splitTextForWechat(finalText, WECHAT_REPLY_TEXT_CHUNK_CHARS);
-  let plainTextChunks: readonly string[] = textChunks;
-
-  if (bubble) {
-    const hasStreamPreview = bubble.hasPreview;
-    plainTextChunks = hasStreamPreview ? textChunks : textChunks.slice(1);
-    try {
-      await bubble.finalize(hasStreamPreview ? "" : textChunks[0] ?? "");
-    } catch (err) {
-      ctx.logError(`流式收口失败，降级为普通消息: ${describeError(err)}`);
-      plainTextChunks = textChunks;
-    }
-  }
+  const textChunks = splitTextForWechat(finalText, ctx.replyTextChunkChars);
 
   await sendTextChunks({
     baseUrl,
     channelVersion: ctx.channelVersion,
-    chunks: plainTextChunks,
+    chunks: textChunks,
     contextToken,
     deps,
     to: parsed.senderId,
@@ -117,7 +107,7 @@ export async function sendReplyToUser(params: {
     }
   }
 
-  ctx.log(bubble?.hasSentUpdates ? "已发送回复（流式气泡）" : "已发送回复");
+  ctx.log("已发送回复");
   if (command.mode === "plan") {
     const planContext: OmoPlanContext = {
       originalRequest: command.body || parsed.text,

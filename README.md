@@ -9,7 +9,7 @@ OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到�
 - 想把 OpenCode / OMO 从终端带到微信里随时可用
 - 想在微信里直接发 `#plan`、`#start`、`#ulw` 这类 OMO 指令
 - 想把文件、图片发给 AI 处理，也让 AI 把产物文件直接发回微信
-- 想要像元宝一样的流式回复体验：气泡原地增长 + "对方正在输入..."
+- 想要长回答尽量完整：OpenCode SSE 辅助补齐 + 微信普通文本分片发送
 - 不想碰终端：浏览器图形控制台覆盖扫码登录、启停和实时日志
 - 想要比纯 demo 更可靠的消息桥接：故障自愈、游标保护、消息去重和 `context_token` 回退
 
@@ -26,7 +26,7 @@ OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到�
 | 微信扫码登录 | 支持独立登录流程，凭据保存在本地 `~/.claude/channels/wechat/`；支持登出并清除本机凭据 |
 | 自动拉起 OpenCode | 启动时自动执行 `opencode serve`，兼容旧版 `opencode server listening...` 和新版 `server listening...` 启动日志 |
 | 长轮询收发微信消息 | 基于 `ilink/bot/getupdates` + `ilink/bot/sendmessage` 实现近实时消息桥接 |
-| 流式回复 | 订阅 OpenCode SSE 增量，单条微信气泡原地增长（`GENERATING→FINISH`），处理期间显示"对方正在输入..." |
+| 完整回复保护 | 订阅 OpenCode SSE 增量作为本地完整性补充，最终按 ClawBot 兼容的普通 `FINISH` 文本分片发送 |
 | 双向媒体收发 | 微信发来的图片/视频/文件自动下载解密到本地收件箱；OpenCode 产物通过媒体指令上传发回微信，手机端可正常下载 |
 | 浏览器图形控制台 | 状态面板、启动/停止、页面内扫码登录、登出、实时日志，仅绑定 127.0.0.1 |
 | 三平台一键启动器 | macOS / Windows / Linux 菜单式启动器，覆盖登录、登出、启动、停止、打开 GUI |
@@ -39,7 +39,7 @@ OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到�
 | OMO agent 路由 | 自动读取新版 `/api/agent` 或旧版 `/agent`，按指令优先路由到 Prometheus、Atlas、Sisyphus 等可用 agent |
 | OMO 计划续跑 | `#plan` 的最近结果会按微信用户缓存，后续 `#start` 可自动续跑 |
 | 一键启动包 | 生成 macOS Apple Silicon、macOS Intel、Windows x64 启动包，内含主程序、扫码工具和图形控制台 |
-| 自动化测试 | 117 个测试覆盖媒体加解密、流式气泡、SSE 聚合、自愈重试、登出清理、GUI 接口等关键回归 |
+| 自动化测试 | 覆盖媒体加解密、SSE 聚合、完整回复分片、自愈重试、登出清理、GUI 接口等关键回归 |
 
 ## 工作方式
 
@@ -57,7 +57,7 @@ OpenCodeWeChat 通过微信官方 ClawBot ilink API，把微信消息桥接到�
 1. 通过 `ilink/bot/getupdates` 长轮询拉取微信用户消息；媒体消息自动从微信 CDN 下载解密到本地收件箱。
 2. 本地启动 `opencode serve`，创建 OpenCode 会话。
 3. 把微信文本（和收到的媒体文件路径）转成 OpenCode prompt，并通过 `system` 加载 Oh My OpenAgent、MCP、Skill 等会话上下文。
-4. 订阅 OpenCode SSE 增量，回复以单条微信气泡原地流式更新并收口；媒体指令随后上传 CDN 作为独立消息发出。
+4. 订阅 OpenCode SSE 增量作为本地完整性兜底；OpenCode 完成后再按普通 `FINISH` 文本安全分片发送，媒体指令随后上传 CDN 作为独立消息发出。
 
 ## 环境要求
 
@@ -169,16 +169,16 @@ macOS / Linux 菜单逻辑位于 `scripts/launcher.sh`，Windows 位于 `scripts
 
 普通消息也会默认进入 Oh My OpenAgent 流程：桥接层会在 OpenCode 请求的 `system` 字段里注入当前会话规则，要求模型按需使用已加载的 MCP 工具、内置 Skill 和 OMO 工作流。带 `#plan`、`#team` 等前缀时，会在这个基础上额外追加对应工作流语义。
 
-### 流式回复与输入中状态
+### 完整回复与输入中状态
 
 长任务不再需要干等一整段回复：
 
 - **输入中指示器**：可选开启。OpenCode 处理期间，微信会显示"对方正在输入..."（官方 `sendtyping` 协议，自动续期，结束自动取消）；为避免 OpenCode / Provider 卡住时微信端残留输入状态，默认关闭，开启后也会在最大时长到达时自动取消
-- **真流式气泡**：可选开启。桥接层订阅 OpenCode 的 SSE 事件流（`message.part.delta`），以同一 `client_id` 配合 `message_state=GENERATING→FINISH` 原地更新一条微信气泡——内容像元宝一样逐步增长，而不是多条分段消息。更新约 1.2 秒节流一次；媒体指令不会闪现在气泡里，推理（reasoning）内容不会泄露，媒体文件在气泡收口后作为独立消息发出
-- **长回复保底分片**：最终回复超过安全长度时，会先收口第一段气泡，再把剩余内容拆成多条文本继续发送，避免 ClawBot / 微信客户端截断尾部
-- 流式订阅不可用（如旧版 OpenCode）时回退为整段发送；流式状态被网关拒绝时自动降级为普通文本消息，内容不丢失
+- **OpenCode SSE 完整性兜底**：桥接层会订阅 OpenCode 的 SSE 事件流，只在本地合并最终文本；不会把生成中的半成品发给微信，也不会发送 `GENERATING` 气泡
+- **长回复保底分片**：最终回复超过安全长度或还有未发送尾部时，会拆成多条普通 `FINISH` 文本继续发送，避免 ClawBot / 微信客户端截断尾部
+- SSE 订阅不可用（如旧版 OpenCode）时回退为同步整段发送；微信侧始终只接收完整普通文本消息和媒体消息
 
-两个开关默认关闭：`OPENCODE_WECHAT_STREAM_REPLIES=1` 开启流式，`OPENCODE_WECHAT_TYPING=1` 开启输入中指示器。
+`OPENCODE_WECHAT_STREAM_CAPTURE` 默认开启；设为 `0` 可关闭 SSE 完整性补充。`OPENCODE_WECHAT_TYPING=1` 可开启输入中指示器。
 
 ### 发送图片、视频和文件到微信
 
@@ -386,7 +386,7 @@ OPENCODE_BIN=C:\Users\你的用户名\AppData\Roaming\npm\opencode.cmd
 | `OPENCODE_WECHAT_CDN_BASE_URL` | `https://novac2c.cdn.weixin.qq.com/c2c` | 可选，覆盖图片/视频/文件上传与下载使用的微信 CDN 地址 |
 | `OPENCODE_WECHAT_INBOX_DIR` | `~/.claude/channels/wechat/inbox` | 可选，覆盖从微信下载媒体文件的保存目录 |
 | `OPENCODE_WECHAT_GUI_PORT` | `5179` | 可选，GUI 控制台监听端口（仅绑定 127.0.0.1） |
-| `OPENCODE_WECHAT_STREAM_REPLIES` | `0` | 实验性流式更新；ClawBot 当前会显示多条截断气泡，默认关闭。确认客户端支持原地更新后设为 `1` |
+| `OPENCODE_WECHAT_STREAM_CAPTURE` | `1` | 订阅 OpenCode SSE 作为最终回复完整性补充；不会把增量直接发成微信气泡。设为 `0` 可关闭 |
 | `OPENCODE_WECHAT_TYPING` | `0` | 设为 `1` 开启微信"对方正在输入"指示器 |
 | `OPENCODE_WECHAT_TYPING_MAX_MS` | `45000` | 输入中指示器开启后，单条消息最多保持的毫秒数，超时会自动取消 |
 | `OPENCODE_WECHAT_PROMPT_TIMEOUT_MS` | `60000` | 单次 OpenCode 请求最大等待毫秒数，超时会中断并进入重试/跳过逻辑 |

@@ -72,9 +72,6 @@ function createDeps(overrides: Partial<TestDeps> = {}): TestDeps {
       return "reply";
     },
     async sendMediaMessage() {},
-    async sendStreamingText() {
-      // noop
-    },
     async sendTextMessage() {
       // noop
     },
@@ -703,7 +700,7 @@ describe("processUpdateBatch", () => {
         logError() {},
         maxMessageAttempts: 3,
         maxTextLen: 200,
-        streamUpdateIntervalMs: 1_200,
+        replyTextChunkChars: 500,
         typingMaxDurationMs: 50,
         verboseLogs: false,
       },
@@ -810,9 +807,8 @@ describe("processUpdateBatch", () => {
     expect(sentTexts[0]).toContain("已跳过");
   });
 
-  test("degrades to a plain text message when the streaming finish fails", async () => {
+  test("does not send OpenCode deltas as WeChat streaming bubbles", async () => {
     const plainTexts: string[] = [];
-    let finishAttempts = 0;
 
     const result = await processUpdateBatch({
       account: TEST_ACCOUNT,
@@ -820,19 +816,14 @@ describe("processUpdateBatch", () => {
       deps: createDeps({
         async openReplyStream() {
           return {
+            async waitForIdle() {},
             stop() {
-              return "";
+              return "正常的回复内容";
             },
           };
         },
         async sendPrompt() {
-          return "正常的回复内容";
-        },
-        async sendStreamingText(_baseUrl, _token, params) {
-          if (params.finish) {
-            finishAttempts += 1;
-            throw new Error("gateway rejects streaming state");
-          }
+          return "正常";
         },
         async sendTextMessage(_baseUrl, _token, _to, text) {
           plainTexts.push(text);
@@ -846,7 +837,6 @@ describe("processUpdateBatch", () => {
     });
 
     expect(result.batchSucceeded).toBe(true);
-    expect(finishAttempts).toBe(1);
     expect(plainTexts).toEqual(["正常的回复内容"]);
   });
 });

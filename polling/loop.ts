@@ -13,7 +13,6 @@ import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 import { startTypingIndicator } from "../core/typing-indicator";
 import {
   generateClientId,
-  sendStreamingText,
   sendTextMessage,
 } from "../api/ilink";
 import { parseMessage } from "../core/message";
@@ -21,7 +20,7 @@ import {
   BACKOFF_DELAY_MS,
   CHANNEL_VERSION,
   DEFAULT_CDN_BASE_URL,
-  ENABLE_STREAM_REPLIES,
+  ENABLE_STREAM_CAPTURE,
   ENABLE_TYPING_INDICATOR,
   ENABLE_VERBOSE_MESSAGE_LOGS,
   INBOX_DIR,
@@ -29,8 +28,8 @@ import {
   MAX_MESSAGE_ATTEMPTS,
   MAX_MESSAGE_TEXT_LEN,
   RETRY_DELAY_MS,
-  STREAM_UPDATE_INTERVAL_MS,
   TYPING_MAX_DURATION_MS,
+  WECHAT_REPLY_TEXT_CHUNK_CHARS,
 } from "../config";
 import type { AccountData, GetUpdatesResp } from "../types/wechat";
 import type { OpencodeSession } from "../opencode/client";
@@ -73,7 +72,7 @@ const DEFAULT_BATCH_DEPS: ProcessUpdateBatchDeps = {
   getLatestPlanContext,
   hasProcessedMessage,
   markMessageProcessed,
-  openReplyStream: ENABLE_STREAM_REPLIES
+  openReplyStream: ENABLE_STREAM_CAPTURE
     ? (session, onText) => openReplyTextStream({ onText, session })
     : null,
   parseOmoCommand,
@@ -82,7 +81,6 @@ const DEFAULT_BATCH_DEPS: ProcessUpdateBatchDeps = {
   saveSyncBuffer,
   sendMediaMessage,
   sendPrompt,
-  sendStreamingText,
   sendTextMessage,
   startTypingIndicator: ENABLE_TYPING_INDICATOR
     ? startTypingIndicator
@@ -111,7 +109,7 @@ function buildProcessorContext(account: AccountData): ProcessorContext {
     logError,
     maxMessageAttempts: MAX_MESSAGE_ATTEMPTS,
     maxTextLen: MAX_MESSAGE_TEXT_LEN,
-    streamUpdateIntervalMs: STREAM_UPDATE_INTERVAL_MS,
+    replyTextChunkChars: WECHAT_REPLY_TEXT_CHUNK_CHARS,
     typingMaxDurationMs: TYPING_MAX_DURATION_MS,
     verboseLogs: ENABLE_VERBOSE_MESSAGE_LOGS,
   };

@@ -249,6 +249,41 @@ describe("sendPrompt", () => {
     }
   });
 
+  test("extracts complete text from nested message parts", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch() {
+        return Response.json({
+          data: {
+            messages: [
+              {
+                parts: [
+                  { text: "完整回复第一段", type: "text" },
+                  { text: "完整回复第二段", type: "text" },
+                ],
+                role: "assistant",
+              },
+            ],
+          },
+          parts: [{ text: "完整", type: "text" }],
+        });
+      },
+    });
+    const session: OpencodeSession = {
+      agents: [],
+      authHeader: "Basic test",
+      close() {},
+      id: "session-1",
+      serverUrl: server.url.toString(),
+    };
+
+    try {
+      expect(await sendPrompt(session, "hello")).toBe("完整回复第一段\n完整回复第二段");
+    } finally {
+      server.stop(true);
+    }
+  });
+
   test("passes Oh My OpenAgent system context to OpenCode", async () => {
     const bodies: unknown[] = [];
     const server = Bun.serve({

@@ -2,7 +2,7 @@
 
 OpenCodeWeChat `v0.4.0` 现已发布。
 
-这个版本把"微信 × 本地 OpenCode"从单向文字工具升级成完整的双向工作台：媒体收发闭环、流式回复、图形控制台，以及一整套故障自愈机制——通道挂了能自己爬起来，坏消息不再堵死队列。
+这个版本把"微信 × 本地 OpenCode"从单向文字工具升级成完整的双向工作台：媒体收发闭环、完整回复保护、图形控制台，以及一整套故障自愈机制——通道挂了能自己爬起来，坏消息不再堵死队列。
 
 ## 更新摘要
 
@@ -11,7 +11,7 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 - 新增接收能力：在微信里直接发图片、视频、文件（或未转写的语音）给 ClawBot，桥接层自动从微信 CDN 下载解密并保存到本地收件箱（`~/.claude/channels/wechat/inbox/`），OpenCode 可直接按路径读取继续处理。
 - 修复发送媒体在手机端无法下载的问题：`aes_key` 编码与官方客户端对齐（hex 字符串 base64），图片、视频、文件现可正常点开。
 - 媒体指令解析增强容错：`~` 家目录路径、全角冒号、反引号/引号包裹均可识别；每条发往 OpenCode 的消息自动附带媒体指令用法提醒，避免模型只回文件名。
-- 新增流式回复：订阅 OpenCode SSE 增量（`message.part.delta`），以同一 `client_id` 配合 `GENERATING→FINISH` 状态在微信里原地更新一条气泡——回复像元宝一样逐步增长；处理期间显示"对方正在输入..."。媒体指令不会闪现在气泡里，推理内容不泄露。可用 `OPENCODE_WECHAT_STREAM_REPLIES=0` / `OPENCODE_WECHAT_TYPING=0` 关闭。
+- 新增完整回复保护：订阅 OpenCode SSE 增量作为本地完整性兜底；微信侧只在 OpenCode 完成后发送普通 `FINISH` 文本分片，不再显示多条半截气泡。处理期间可选显示"对方正在输入..."。可用 `OPENCODE_WECHAT_STREAM_CAPTURE=0` / `OPENCODE_WECHAT_TYPING=0` 关闭。
 
 ### 启动与管理
 
@@ -31,7 +31,7 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 
 ### 测试
 
-- 自动化测试从 23 个扩展到 122 个，覆盖媒体收发与加解密、流式分段、长回复分片、SSE 聚合、自愈重试、登出清理、GUI 接口等核心路径。
+- 自动化测试从 23 个扩展到 134 个，覆盖媒体收发与加解密、ClawBot 普通 `FINISH` 发送、长回复分片、SSE 聚合、自愈重试、登出清理、GUI 接口等核心路径。
 
 ## 下载
 
@@ -44,17 +44,17 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 ## SHA256 校验
 
 - `OpenCodeWeChat-0.4.0-macos-arm64.zip`
-  `beea05d81dd85d1359042789758a2e0631401ac8bbf97240fb26707306596f9c`
+  `e78543e0adcf6db1182243e03069244944f9a168045cbc8a7ea58bdac2df2f6c`
 
 - `OpenCodeWeChat-0.4.0-macos-x64.zip`
-  `d0256127cfde9242306712495d462df722f4788ea2bdcc59bd9a396e2bc26101`
+  `2d974e1d2fbdfa4bdd3f9109ea0460ff31683f8f30066266e8cce7b5507c86b7`
 
 - `OpenCodeWeChat-0.4.0-windows-x64.zip`
-  `809492072104ee0da345fa9b6c7704dec66587090dacd39a3b3739816315d6b2`
+  `c9fe57fe851fe69699d103f2e9ae5b346fde70fc14b84555df84a68d1ebf80fa`
 
 ## 快速上手
 
 - 想要图形化体验：双击 `OpenCodeWeChat GUI`，在浏览器里扫码、启动、看日志
 - 在微信里发文件/图片给 ClawBot，让 OpenCode 直接处理；让它"把结果文件发给我"，文件会回到微信且可正常下载
-- 长任务会看到"对方正在输入..."和分段到达的流式回复
+- 长任务可开启"对方正在输入..."；最终回复会按普通文本完整分片到达
 - OMO 工作流照旧：`#plan`、`#start`、`#ulw`、`#delegate`、`#deep`、`#review`、`#summary`

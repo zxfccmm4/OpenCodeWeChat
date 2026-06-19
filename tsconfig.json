@@ -14,7 +14,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["bun"]
   },
   "include": ["*.ts", "api/*.ts", "core/*.ts", "gui/*.ts", "login/*.ts", "mcp/*.ts", "opencode/*.ts", "polling/*.ts", "scripts/*.ts", "storage/*.ts", "tests/*.ts", "types/*.ts"],
   "exclude": ["node_modules", "dist", "claude-code-wechat-channel"]

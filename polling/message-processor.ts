@@ -1,17 +1,13 @@
 /**
- * 单条入站消息的完整处理流程：prompt 构建、typing 指示、流式气泡、
- * OpenCode 调用（含连接中断后自动重启重试）、回复发送（文本+媒体）、
+ * 单条入站消息的完整处理流程：prompt 构建、typing 指示、
+ * OpenCode 调用（含连接中断后自动重启重试）、SSE 完整性补齐、回复发送（文本+媒体）、
  * OMO plan 缓存、失败重试。
  *
  * 这是 polling 层最核心也最重的逻辑单元，从 processUpdateBatch 抽出
  * 以便独立测试和降低 loop.ts 的认知负担。
  */
 import { buildOmoSendPromptOptions } from "../core/omo-agent-routing";
-import { StreamingTextBubble } from "../core/streaming-bubble";
-import {
-  buildStreamPreview,
-  WECHAT_MEDIA_PROMPT_HINT,
-} from "../core/wechat-media-directive";
+import { WECHAT_MEDIA_PROMPT_HINT } from "../core/wechat-media-directive";
 import { downloadMediaAnnotations } from "./inbound-media";
 import { sendReplyToUser } from "./reply-sender";
 import {
@@ -164,30 +160,15 @@ export async function processMessage(params: {
       })
       : null;
     const stopTyping = stopAfterMaxDuration(rawStopTyping, ctx.typingMaxDurationMs);
-
-    const bubbleClientId = deps.openReplyStream ? deps.generateClientId() : "";
-    const bubble = contextToken && deps.openReplyStream
-      ? new StreamingTextBubble(
-        (text, finish) => deps.sendStreamingText(baseUrl, token, {
-          clientId: bubbleClientId,
-          contextToken,
-          finish,
-          text,
-          to: parsed.senderId,
-        }, ctx.channelVersion),
-        ctx.streamUpdateIntervalMs,
-        (err) => ctx.logError(`流式更新失败，停止增量、整段收口: ${describeError(err)}`),
-      )
-      : null;
-
     let streamHandle: ReplyStreamHandle | null = null;
-    if (bubble && deps.openReplyStream) {
+    let streamCapturedText = "";
+    if (contextToken && deps.openReplyStream) {
       try {
         streamHandle = await deps.openReplyStream(initialOpencode, (cumulative) => {
-          bubble.update(buildStreamPreview(cumulative));
+          streamCapturedText = cumulative;
         });
       } catch (err) {
-        ctx.log(`流式订阅不可用，使用整段回复: ${describeError(err)}`);
+        ctx.log(`OpenCode SSE 订阅不可用，仅使用同步回复: ${describeError(err)}`);
         streamHandle = null;
       }
     }
@@ -226,10 +207,8 @@ export async function processMessage(params: {
       }
     } finally {
       if (streamHandle) {
-        // sendPrompt 返回时 SSE 读取器可能仍有缓冲事件未处理，
-        // 短暂等待让读取器把增量消费完，避免 streamFinalText 被截断
-        await new Promise((r) => setTimeout(r, 500));
-        streamFinalText = streamHandle.stop();
+        await streamHandle.waitForIdle(500);
+        streamFinalText = streamHandle.stop() || streamCapturedText;
       }
       if (stopTyping) {
         await stopTyping();
@@ -241,10 +220,10 @@ export async function processMessage(params: {
     let displayText = responseText.length >= streamFinalText.length
       ? responseText
       : streamFinalText;
-    if (sessionRestarted && bubble?.hasSentUpdates) {
+    if (sessionRestarted && streamFinalText) {
       displayText = `（OpenCode 连接中断，以下为重新生成的完整回复）\n\n${responseText}`;
     }
-    if (!displayText && !bubble?.hasSentUpdates) {
+    if (!displayText) {
       ctx.log("OpenCode 返回空响应，跳过发送");
       deps.markMessageProcessed(parsed.dedupeKey);
       clearMessageAttempts(parsed.dedupeKey);
@@ -252,7 +231,6 @@ export async function processMessage(params: {
     }
 
     await sendReplyToUser({
-      bubble,
       command: omoCommand,
       deps,
       fullText: displayText,

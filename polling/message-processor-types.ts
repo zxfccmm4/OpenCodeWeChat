@@ -11,7 +11,6 @@ import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 import type { StopTypingFn } from "../core/typing-indicator";
 import {
   generateClientId,
-  sendStreamingText,
   sendTextMessage,
 } from "../api/ilink";
 import {
@@ -57,7 +56,6 @@ export type MessageProcessorDeps = {
   readonly saveLatestPlanContext: typeof saveLatestPlanContext;
   readonly sendMediaMessage: typeof sendMediaMessage;
   readonly sendPrompt: typeof sendPrompt;
-  readonly sendStreamingText: typeof sendStreamingText;
   readonly sendTextMessage: typeof sendTextMessage;
   readonly startTypingIndicator: StartTypingIndicatorFn;
 };
@@ -71,12 +69,12 @@ export type ProcessorContext = {
   readonly cdnBaseUrl: string;
   readonly inboxDir: string;
   readonly maxMessageAttempts: number;
-  readonly streamUpdateIntervalMs: number;
   readonly typingMaxDurationMs: number;
   readonly verboseLogs: boolean;
   readonly maxTextLen: number;
   readonly log: (msg: string) => void;
   readonly logError: (msg: string) => void;
+  readonly replyTextChunkChars: number;
 };
 
 export type ProcessMessageResult =

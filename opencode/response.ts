@@ -15,10 +15,8 @@ export function extractResponseError(data: unknown): string | undefined {
 }
 
 export function extractResponseText(data: unknown): string {
-  return getParts(data)
-    .map(getTextPart)
-    .filter((text): text is string => text !== undefined)
-    .join("\n");
+  return [...getTextCandidates(data)]
+    .sort((a: string, b: string) => b.length - a.length)[0] ?? "";
 }
 
 export function getParts(data: unknown): readonly unknown[] {
@@ -32,6 +30,52 @@ export function getParts(data: unknown): readonly unknown[] {
 
   const nestedParts = Reflect.get(nested, "parts");
   return Array.isArray(nestedParts) ? nestedParts : [];
+}
+
+function getTextCandidates(data: unknown): readonly string[] {
+  const candidates = [getPartsText(getParts(data))];
+  for (const parts of getNestedMessageParts(data)) {
+    candidates.push(getPartsText(parts));
+  }
+  return candidates.filter((text) => text.length > 0);
+}
+
+function getPartsText(parts: readonly unknown[]): string {
+  return parts
+    .map(getTextPart)
+    .filter((text): text is string => text !== undefined)
+    .join("\n");
+}
+
+function getNestedMessageParts(data: unknown): readonly (readonly unknown[])[] {
+  if (!isObject(data)) return [];
+  const nested = Reflect.get(data, "data");
+  const values = [
+    Reflect.get(data, "messages"),
+    Reflect.get(data, "message"),
+    isObject(nested) ? Reflect.get(nested, "messages") : undefined,
+    isObject(nested) ? Reflect.get(nested, "message") : undefined,
+  ];
+
+  const results: Array<readonly unknown[]> = [];
+  for (const value of values) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const parts = getMessageParts(item);
+        if (parts) results.push(parts);
+      }
+      continue;
+    }
+    const parts = getMessageParts(value);
+    if (parts) results.push(parts);
+  }
+  return results;
+}
+
+function getMessageParts(value: unknown): readonly unknown[] | undefined {
+  if (!isObject(value)) return undefined;
+  const parts = Reflect.get(value, "parts");
+  return Array.isArray(parts) ? parts : undefined;
 }
 
 function getTextPart(part: unknown): string | undefined {

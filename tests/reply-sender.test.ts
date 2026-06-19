@@ -1,13 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { StreamingTextBubble } from "../core/streaming-bubble";
 import type { OmoCommand } from "../core/omo-command";
 import { sendReplyToUser } from "../polling/reply-sender";
 import type { MessageProcessorDeps, ProcessorContext } from "../polling/message-processor-types";
 import type { ParsedMessage } from "../types/wechat";
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 const TEST_COMMAND: OmoCommand = {
   body: "普通问题",
@@ -37,7 +32,7 @@ const TEST_CONTEXT: ProcessorContext = {
   logError() {},
   maxMessageAttempts: 3,
   maxTextLen: 200,
-  streamUpdateIntervalMs: 1_200,
+  replyTextChunkChars: 500,
   typingMaxDurationMs: 45_000,
   verboseLogs: false,
 };
@@ -76,7 +71,6 @@ function createDeps(sentPlainTexts: string[]): MessageProcessorDeps {
     async sendPrompt() {
       return "";
     },
-    async sendStreamingText() {},
     async sendTextMessage(_baseUrl, _token, _to, text) {
       sentPlainTexts.push(text);
     },
@@ -90,14 +84,8 @@ describe("sendReplyToUser", () => {
   test("splits long text replies so ClawBot receives the complete answer", async () => {
     const sentTexts: string[] = [];
     const longReply = "完整回复".repeat(160);
-    const bubble = new StreamingTextBubble(async (text, finish) => {
-      if (finish) {
-        sentTexts.push(text);
-      }
-    }, 0);
 
     await sendReplyToUser({
-      bubble,
       command: TEST_COMMAND,
       deps: createDeps(sentTexts),
       fullText: longReply,
@@ -109,19 +97,11 @@ describe("sendReplyToUser", () => {
     expect(sentTexts.join("")).toBe(longReply);
   });
 
-  test("sends a complete ordinary text reply after a streamed preview", async () => {
+  test("sends complete ordinary text without a streaming preview bubble", async () => {
     const sentPlainTexts: string[] = [];
-    const streamingSends: Array<{ finish: boolean; text: string }> = [];
     const fullReply = "这是完整回复，不能只停留在流式预览的几个字。";
-    const bubble = new StreamingTextBubble(async (text, finish) => {
-      streamingSends.push({ finish, text });
-    }, 0);
-
-    bubble.update("短预览");
-    await sleep(10);
 
     await sendReplyToUser({
-      bubble,
       command: TEST_COMMAND,
       deps: createDeps(sentPlainTexts),
       fullText: fullReply,
@@ -129,8 +109,6 @@ describe("sendReplyToUser", () => {
       ctx: TEST_CONTEXT,
     });
 
-    expect(streamingSends).toContainEqual({ finish: false, text: "短预览" });
-    expect(streamingSends).not.toContainEqual({ finish: true, text: "短预览" });
     expect(sentPlainTexts.join("")).toBe(fullReply);
   });
 });
