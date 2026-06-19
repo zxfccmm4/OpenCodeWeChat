@@ -26,6 +26,20 @@ export const WECHAT_MEDIA_PROMPT_HINT = [
   "路径必须是本机真实存在的绝对路径；只在文本里提到文件名或路径不会发送任何文件。与发文件无关时忽略本提醒。）",
 ].join("\n");
 
+export const WECHAT_FILE_DELIVERY_PROMPT_HINT = [
+  "【微信文件交付硬性要求】",
+  "用户当前请求明确需要生成并发送本地文件。不要只回复“我可以生成”或只给文件名；必须实际创建文件，并在最终回复最后单独输出媒体指令。",
+  "如果用户要求 PDF/报告/文档，优先生成真实 PDF 文件；如果只能生成其他格式，必须说明原因并发送实际生成的文件。",
+  "最终回复必须包含一行：[[wechat-file:/本机真实绝对路径/文件名.pdf|文件说明]]。",
+  "路径必须存在于运行 OpenCodeWeChat 的机器上；桥接层只会发送媒体指令指向的真实本地文件。",
+].join("\n");
+
+const FILE_DELIVERY_RE = /(?:pdf|文件|文档|下载|打包|zip|发给我|发送给我|传给我|给我一份|报告.*(?:发|给|下载)|生成.*(?:给我|发我|下载|文件|pdf)|export|download|attachment|attach|report.*(?:send|download|attach)|document|spreadsheet)/i;
+
+export function needsWechatFileDeliveryHint(text: string): boolean {
+  return FILE_DELIVERY_RE.test(text);
+}
+
 const DIRECTIVE_RE = /\[\[\s*wechat-(image|video|file)\s*[:：]([^\]\r\n]+)\]\]/gi;
 
 export function parseWechatReplyParts(text: string): readonly WechatReplyPart[] {

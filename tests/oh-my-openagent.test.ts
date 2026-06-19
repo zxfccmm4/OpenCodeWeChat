@@ -23,6 +23,18 @@ describe("Oh My OpenAgent system context", () => {
     expect(options.system).toContain("Skill");
   });
 
+  test("routes ordinary messages to the OMO primary agent when available", () => {
+    const options = buildOmoSendPromptOptions(
+      parseOmoCommand("帮我看看这个问题"),
+      {
+        ...TEST_SESSION,
+        agents: [{ id: "sisyphus" }],
+      },
+    );
+
+    expect(options.agent).toBe("sisyphus");
+  });
+
   test("keeps command-specific workflow context in the system prompt", () => {
     const options = buildOmoSendPromptOptions(
       parseOmoCommand("#team 并行排查这个问题"),

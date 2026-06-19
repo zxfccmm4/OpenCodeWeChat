@@ -11,6 +11,7 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 - 新增接收能力：在微信里直接发图片、视频、文件（或未转写的语音）给 ClawBot，桥接层自动从微信 CDN 下载解密并保存到本地收件箱（`~/.claude/channels/wechat/inbox/`），OpenCode 可直接按路径读取继续处理。
 - 修复发送媒体在手机端无法下载的问题：`aes_key` 编码与官方客户端对齐（hex 字符串 base64），图片、视频、文件现可正常点开。
 - 媒体指令解析增强容错：`~` 家目录路径、全角冒号、反引号/引号包裹均可识别；每条发往 OpenCode 的消息自动附带媒体指令用法提醒，避免模型只回文件名。
+- 普通微信消息默认路由到 OMO 主 agent（`omo` / `sisyphus`），不再落到 OpenCode 默认 agent；当用户明确要求 PDF/报告/文件交付时，会向 OMO 追加硬性文件交付协议，要求实际创建本地文件并用 `[[wechat-file:/绝对路径|说明]]` 发回微信。
 - 新增完整回复保护：订阅 OpenCode SSE 增量作为本地完整性兜底；微信侧只在 OpenCode 完成后发送普通 `FINISH` 文本分片，不再显示多条半截气泡。处理期间可选显示"对方正在输入..."。可用 `OPENCODE_WECHAT_STREAM_CAPTURE=0` / `OPENCODE_WECHAT_TYPING=0` 关闭。
 
 ### 启动与管理
@@ -32,7 +33,7 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 
 ### 测试
 
-- 自动化测试从 23 个扩展到 139 个，覆盖媒体收发与加解密、ClawBot 普通 `FINISH` 发送、长回复分片、SSE 聚合、OMO 默认模型选择、自愈重试、登出清理、GUI 接口等核心路径。
+- 自动化测试从 23 个扩展到 141 个，覆盖媒体收发与加解密、ClawBot 普通 `FINISH` 发送、长回复分片、SSE 聚合、OMO 默认模型选择、普通消息路由到 OMO 主 agent、PDF/文件交付协议、自愈重试、登出清理、GUI 接口等核心路径。
 
 ## 下载
 
@@ -45,13 +46,13 @@ OpenCodeWeChat `v0.4.0` 现已发布。
 ## SHA256 校验
 
 - `OpenCodeWeChat-0.4.0-macos-arm64.zip`
-  `5c2aedfd59e7de6fdaecd4e1f0f00cd65db72f9f21d09b2a90efb841af938793`
+  `20a9a3753d74b981085a98463ffe1090e41a66705c5b5c1b9c1ec3f1e6a5dec9`
 
 - `OpenCodeWeChat-0.4.0-macos-x64.zip`
-  `49b501409e4a8f7dbee25d000d21495b4e2f115b25c4173b270b927470d6d0b4`
+  `7d70a086fe71d2bea0707a279377533d92cd7d19096251fa83d92e15710d3d50`
 
 - `OpenCodeWeChat-0.4.0-windows-x64.zip`
-  `e9737115eabad6d670312887f15e1c171a9723444547bc784ed6dcd28c7d0534`
+  `3c8640a2791b6ca2ed66a94cfeb32708283240befe294d5bfaaa66c1fcf38078`
 
 ## 快速上手
 

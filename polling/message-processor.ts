@@ -7,7 +7,11 @@
  * 以便独立测试和降低 loop.ts 的认知负担。
  */
 import { buildOmoSendPromptOptions } from "../core/omo-agent-routing";
-import { WECHAT_MEDIA_PROMPT_HINT } from "../core/wechat-media-directive";
+import {
+  needsWechatFileDeliveryHint,
+  WECHAT_FILE_DELIVERY_PROMPT_HINT,
+  WECHAT_MEDIA_PROMPT_HINT,
+} from "../core/wechat-media-directive";
 import { downloadMediaAnnotations } from "./inbound-media";
 import { sendReplyToUser } from "./reply-sender";
 import {
@@ -137,6 +141,7 @@ export async function processMessage(params: {
     const compiledPrompt = [
       deps.buildOmoPrompt(promptText, latestPlanContext),
       WECHAT_MEDIA_PROMPT_HINT,
+      ...(needsWechatFileDeliveryHint(promptText) ? [WECHAT_FILE_DELIVERY_PROMPT_HINT] : []),
     ].join("\n\n");
 
     const sendOnce = async (session: OpencodeSession): Promise<string> => {

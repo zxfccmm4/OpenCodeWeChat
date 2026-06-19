@@ -333,17 +333,22 @@ describe("processUpdateBatch", () => {
 
   test("loads Oh My OpenAgent context for ordinary OpenCode calls", async () => {
     const systems: string[] = [];
+    const sentAgents: string[] = [];
 
     const result = await processUpdateBatch({
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps: createDeps({
         async sendPrompt(_session, _prompt, options) {
+          if (options?.agent) sentAgents.push(options.agent);
           if (options?.system) systems.push(options.system);
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: {
+        ...TEST_SESSION,
+        agents: [{ id: "sisyphus", mode: "primary" }],
+      },
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "普通问题" })],
@@ -351,9 +356,38 @@ describe("processUpdateBatch", () => {
     });
 
     expect(result.batchSucceeded).toBe(true);
+    expect(sentAgents).toEqual(["sisyphus"]);
     expect(systems[0]).toContain("Oh My OpenAgent");
     expect(systems[0]).toContain("MCP");
     expect(systems[0]).toContain("Skill");
+  });
+
+  test("adds a hard file-delivery contract for PDF requests", async () => {
+    const prompts: string[] = [];
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        async sendPrompt(_session, prompt) {
+          prompts.push(prompt);
+          return "reply";
+        },
+      }),
+      opencode: TEST_SESSION,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({
+          contextToken: "ctx-1",
+          text: "生成精美PDF报告发给我，带封面、表格和图表",
+        })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(prompts[0]).toContain("微信文件交付硬性要求");
+    expect(prompts[0]).toContain("必须实际创建文件");
+    expect(prompts[0]).toContain("[[wechat-file:/本机真实绝对路径/文件名.pdf|文件说明]]");
   });
 
   test("sends media directives as media messages instead of raw text", async () => {

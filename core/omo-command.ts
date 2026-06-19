@@ -231,7 +231,7 @@ export function getPreferredOmoAgents(mode: OmoCommandMode): readonly string[] {
     case "summary":
       return ["summary", "sisyphus"];
     case "none":
-      return [];
+      return ["omo", "sisyphus"];
   }
 }
 
