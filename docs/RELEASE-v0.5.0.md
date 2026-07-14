@@ -31,9 +31,9 @@ OpenCodeWeChat `v0.5.0` 已发布。
 
 | 平台 | 文件 | SHA256 |
 |------|------|--------|
-| macOS Apple Silicon | [OpenCodeWeChat-0.5.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-macos-arm64.zip) | `44ff5a9c6fa80a0344f4b405f009de22dc19e03283c6ecbf72405cf3c1be4188` |
-| macOS Intel | [OpenCodeWeChat-0.5.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-macos-x64.zip) | `89b3019d8e62b0bb3ddf80845668b4402a8fd8d01cd55b415b0b362a519baafb` |
-| Windows x64 | [OpenCodeWeChat-0.5.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-windows-x64.zip) | `f7ba551706e66c2252aaffafd1a34a963e97558ead28ce79787bf68ce562d9b3` |
+| macOS Apple Silicon | [OpenCodeWeChat-0.5.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-macos-arm64.zip) | `29ca99415b70a3ab7e10287ee288632cfd43c6a43f79aca579b5cebce746b3c3` |
+| macOS Intel | [OpenCodeWeChat-0.5.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-macos-x64.zip) | `580e356f0f08a1c93c709d683213b4a956c1802d0f7f6dba4771680d8709cae9` |
+| Windows x64 | [OpenCodeWeChat-0.5.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-windows-x64.zip) | `2ad82bb7dd969d958a7c87cfc2ea3d8eb62198d7af1276997d39e2fbf270a285` |
 
 ## 快速上手
 
