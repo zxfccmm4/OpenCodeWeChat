@@ -94,6 +94,7 @@ export async function sendReplyToUser(params: {
         token,
       });
     } catch (err) {
+      if (!(err instanceof Error)) throw err;
       ctx.logError(`媒体发送失败 (${part.filePath}): ${describeError(err)}`);
       await deps.sendTextMessage(
         baseUrl,
@@ -114,6 +115,6 @@ export async function sendReplyToUser(params: {
       planResponse: fullText,
       savedAt: new Date().toISOString(),
     };
-    deps.saveLatestPlanContext(planContext, parsed.senderId);
+    deps.saveLatestPlanContext(ctx.account, planContext, parsed.senderId);
   }
 }

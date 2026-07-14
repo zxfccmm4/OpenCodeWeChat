@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 
 export const CHANNEL_NAME = "wechat";
-export const CHANNEL_VERSION = "0.4.0";
+export const CHANNEL_VERSION = "0.5.0";
 export const DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com";
 export const DEFAULT_CDN_BASE_URL = process.env.OPENCODE_WECHAT_CDN_BASE_URL?.trim()
   || "https://novac2c.cdn.weixin.qq.com/c2c";
@@ -25,6 +25,11 @@ export const CREDENTIALS_DIR = path.join(
 export const CREDENTIALS_FILE = path.join(CREDENTIALS_DIR, "account.json");
 export const CONTEXT_TOKENS_FILE = path.join(CREDENTIALS_DIR, "context_tokens.json");
 export const OMO_PLAN_CONTEXT_FILE = path.join(CREDENTIALS_DIR, "omo_plan_context.json");
+export const OMO_PLAN_CONTEXT_ARCHIVE_FILE = path.join(
+  CREDENTIALS_DIR,
+  "omo_plan_context.json.migrated",
+);
+export const STATE_DATABASE_FILE = path.join(CREDENTIALS_DIR, "bot_state.sqlite");
 export const PROCESSED_MESSAGES_FILE = path.join(CREDENTIALS_DIR, "processed_messages.json");
 export const SYNC_BUFFER_FILE = path.join(CREDENTIALS_DIR, "sync_buf.txt");
 export const PID_FILE = path.join(CREDENTIALS_DIR, "opencode-wechat.pid");

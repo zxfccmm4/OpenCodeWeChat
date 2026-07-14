@@ -4,11 +4,13 @@ import { parseOmoCommand } from "../core/omo-command";
 import type { OpencodeSession } from "../opencode/client";
 
 const TEST_SESSION: OpencodeSession = {
-  agents: [],
-  authHeader: "Basic test",
-  close() {},
   id: "session-1",
-  serverUrl: "http://127.0.0.1:1",
+  transport: {
+    agents: [],
+    authHeader: "Basic test",
+    generation: 0,
+    serverUrl: "http://127.0.0.1:1",
+  },
 };
 
 describe("Oh My OpenAgent system context", () => {
@@ -28,7 +30,10 @@ describe("Oh My OpenAgent system context", () => {
       parseOmoCommand("帮我看看这个问题"),
       {
         ...TEST_SESSION,
-        agents: [{ id: "sisyphus" }],
+        transport: {
+          ...TEST_SESSION.transport,
+          agents: [{ id: "sisyphus" }],
+        },
       },
     );
 
@@ -40,7 +45,10 @@ describe("Oh My OpenAgent system context", () => {
       parseOmoCommand("#team 并行排查这个问题"),
       {
         ...TEST_SESSION,
-        agents: [{ id: "sisyphus" }],
+        transport: {
+          ...TEST_SESSION.transport,
+          agents: [{ id: "sisyphus" }],
+        },
       },
     );
 

@@ -22,7 +22,9 @@ const TEST_MESSAGE: ParsedMessage = {
 
 const TEST_CONTEXT: ProcessorContext = {
   account: {
+    accountId: "bot-1",
     baseUrl: "https://example.com",
+    profileId: "profile-1",
     token: "token-1",
   },
   cdnBaseUrl: "https://cdn.example.com",

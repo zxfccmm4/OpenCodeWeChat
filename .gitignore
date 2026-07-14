@@ -6,7 +6,4 @@ dist/
 *.local
 package-lock.json
 bun.lockb
-
-# 个人配置
-config.ts
 .mcp.json

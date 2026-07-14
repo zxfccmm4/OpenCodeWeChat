@@ -128,6 +128,105 @@ describe("stopRunningInstance", () => {
 });
 
 describe("clearAccountState", () => {
+  test("deletes one sender plan without affecting another sender", () => {
+    const tempDir = makeTempDir();
+    const projectRoot = path.resolve(import.meta.dir, "..");
+    const script = `
+      const planStore = await import("./storage/omo-plan-context.ts");
+      const scope = { accountId: "account-a", profileId: "profile-a" };
+      planStore.saveLatestPlanContext(scope,
+        { originalRequest: "request-a", planResponse: "plan-a", savedAt: "2026-07-13T00:00:00.000Z" },
+        "sender-a",
+      );
+      planStore.saveLatestPlanContext(scope,
+        { originalRequest: "request-b", planResponse: "plan-b", savedAt: "2026-07-13T00:01:00.000Z" },
+        "sender-b",
+      );
+      planStore.deleteLatestPlanContext(scope, "sender-a");
+      console.log(JSON.stringify({
+        deleted: planStore.getLatestPlanContext(scope, "sender-a"),
+        retained: planStore.getLatestPlanContext(scope, "sender-b")?.planResponse,
+      }));
+    `;
+    const result = Bun.spawnSync([process.execPath, "-e", script], {
+      cwd: projectRoot,
+      env: { ...process.env, HOME: tempDir },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout.toString())).toEqual({ retained: "plan-b" });
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  });
+
+  test("removes the SQLite state database and WAL artifacts on logout", () => {
+    const tempDir = makeTempDir();
+    const files = {
+      contextTokensFile: path.join(tempDir, "context_tokens.json"),
+      credentialsFile: path.join(tempDir, "account.json"),
+      omoPlanContextFile: path.join(tempDir, "omo_plan_context.json"),
+      processedMessagesFile: path.join(tempDir, "processed_messages.json"),
+      stateDatabaseFile: path.join(tempDir, "bot_state.sqlite"),
+      syncBufferFile: path.join(tempDir, "sync_buf.txt"),
+    };
+    const databaseArtifacts = [`${files.stateDatabaseFile}-wal`, `${files.stateDatabaseFile}-shm`];
+    for (const file of [...Object.values(files), ...databaseArtifacts]) {
+      fs.writeFileSync(file, "data", "utf-8");
+    }
+
+    const removed = clearAccountState(files);
+
+    expect(removed.sort()).toEqual([
+      ...Object.values(files),
+      ...databaseArtifacts,
+    ].sort());
+    for (const file of removed) expect(fs.existsSync(file)).toBe(false);
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  });
+
+  test("preserves separate persisted OMO plans per sender until logout removes the database", () => {
+    const tempDir = makeTempDir();
+    const projectRoot = path.resolve(import.meta.dir, "..");
+    const script = `
+      const planStore = await import("./storage/omo-plan-context.ts");
+      const runtimeState = await import("./storage/runtime-state.ts");
+      const scope = { accountId: "account-a", profileId: "profile-a" };
+      planStore.saveLatestPlanContext(scope,
+        { originalRequest: "request-a", planResponse: "plan-a", savedAt: "2026-07-13T00:00:00.000Z" },
+        "sender-a",
+      );
+      planStore.saveLatestPlanContext(scope,
+        { originalRequest: "request-b", planResponse: "plan-b", savedAt: "2026-07-13T00:01:00.000Z" },
+        "sender-b",
+      );
+      const beforeLogout = [
+        planStore.getLatestPlanContext(scope, "sender-a")?.planResponse,
+        planStore.getLatestPlanContext(scope, "sender-b")?.planResponse,
+      ];
+      const removed = runtimeState.clearAccountState();
+      console.log(JSON.stringify({
+        beforeLogout,
+        removedStateDatabase: removed.some((file) => file.endsWith("bot_state.sqlite")),
+      }));
+    `;
+
+    const result = Bun.spawnSync([process.execPath, "-e", script], {
+      cwd: projectRoot,
+      env: { ...process.env, HOME: tempDir },
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout.toString())).toEqual({
+      beforeLogout: ["plan-a", "plan-b"],
+      removedStateDatabase: true,
+    });
+
+    fs.rmSync(tempDir, { force: true, recursive: true });
+  });
+
   test("removes credential and session files but leaves the inbox alone", () => {
     const tempDir = makeTempDir();
     const files = {

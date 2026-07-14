@@ -3,8 +3,11 @@ import { processUpdateBatch, resetMessageAttemptTracking } from "../polling/loop
 import { processMessage } from "../polling/message-processor";
 import { parseMessage } from "../core/message";
 import type { AccountData, GetUpdatesResp } from "../types/wechat";
-import type { OpencodeSession } from "../opencode/client";
+import { OpencodeTransportManager } from "../opencode/client";
+import type { OpencodeRuntime, OpencodeSession } from "../opencode/client";
 import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
+import type { UserSessionResolver } from "../opencode/user-session-manager";
+import type { BotBinding } from "../storage/bot-state-types";
 
 type TestDeps = NonNullable<Parameters<typeof processUpdateBatch>[0]["deps"]>;
 
@@ -17,14 +20,29 @@ const TEST_ACCOUNT: AccountData = {
 };
 
 const TEST_SESSION: OpencodeSession = {
-  agents: [],
-  authHeader: "Basic test",
-  close() {
-    // noop
-  },
   id: "session-1",
-  serverUrl: "http://127.0.0.1:1",
+  transport: {
+    agents: [],
+    authHeader: "Basic test",
+    generation: 0,
+    serverUrl: "http://127.0.0.1:1",
+  },
 };
+const TEST_RUNTIME: OpencodeRuntime = {
+  manager: new OpencodeTransportManager({
+    agents: [],
+    authHeader: "Basic test",
+    close() {},
+    serverUrl: "http://127.0.0.1:1",
+  }, async () => {
+    throw new Error("not used");
+  }),
+  session: TEST_SESSION,
+};
+
+function runtimeWithSession(session: OpencodeSession): OpencodeRuntime {
+  return { manager: TEST_RUNTIME.manager, session };
+}
 
 function createDeps(overrides: Partial<TestDeps> = {}): TestDeps {
   return {
@@ -42,7 +60,7 @@ function createDeps(overrides: Partial<TestDeps> = {}): TestDeps {
     },
     openReplyStream: null,
     async restartOpencode() {
-      return TEST_SESSION;
+      return TEST_RUNTIME;
     },
     async startTypingIndicator() {
       return async () => {};
@@ -56,7 +74,14 @@ function createDeps(overrides: Partial<TestDeps> = {}): TestDeps {
     hasProcessedMessage() {
       return false;
     },
+    // 默认不碰本机 welcomed_senders.json
+    hasWelcomedSender() {
+      return true;
+    },
     markMessageProcessed() {
+      // noop
+    },
+    markSenderWelcomed() {
       // noop
     },
     parseOmoCommand(text) {
@@ -119,6 +144,28 @@ function createImageMessage(params: {
   };
 }
 
+function bindingForPolling(senderId: string, sessionId: string): BotBinding {
+  return {
+    bindingId: `binding-${senderId}`,
+    boundAt: 1,
+    directory: `/tmp/${senderId}`,
+    replyStyle: "standard",
+    senderId,
+    sessionId,
+  };
+}
+
+function resolvedForPolling(binding: BotBinding, sessionId: string) {
+  return {
+    binding: { ...binding, sessionId },
+    session: {
+      directory: binding.directory,
+      id: sessionId,
+      transport: TEST_SESSION.transport,
+    },
+  };
+}
+
 describe("processUpdateBatch", () => {
   beforeEach(() => {
     resetMessageAttemptTracking();
@@ -135,7 +182,7 @@ describe("processUpdateBatch", () => {
           savedBuffers.push(buffer);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "hello" })],
@@ -161,7 +208,7 @@ describe("processUpdateBatch", () => {
           throw new Error("OpenCode down");
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "hello" })],
@@ -201,7 +248,7 @@ describe("processUpdateBatch", () => {
           sendTextMessageCalls += 1;
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response,
     });
 
@@ -226,7 +273,7 @@ describe("processUpdateBatch", () => {
           sentTokens.push(contextToken);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ text: "hello without inline token" })],
@@ -239,21 +286,29 @@ describe("processUpdateBatch", () => {
   });
 
   test("stores the latest plan response after a #plan request", async () => {
-    const savedPlans: Array<{ originalRequest: string; planResponse: string; userId: string }> = [];
+    const savedPlans: Array<{
+      accountId: string;
+      originalRequest: string;
+      planResponse: string;
+      profileId: string;
+      userId: string;
+    }> = [];
 
     const result = await processUpdateBatch({
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps: createDeps({
-        saveLatestPlanContext(planContext, userId) {
+        saveLatestPlanContext(scope, planContext, userId) {
           savedPlans.push({
+            accountId: scope.accountId,
             originalRequest: planContext.originalRequest,
             planResponse: planContext.planResponse,
+            profileId: scope.profileId,
             userId,
           });
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "#plan 帮我拆一下实现步骤" })],
@@ -263,8 +318,10 @@ describe("processUpdateBatch", () => {
     expect(result.batchSucceeded).toBe(true);
     expect(savedPlans).toEqual([
       {
+        accountId: "bot-1",
         originalRequest: "帮我拆一下实现步骤",
         planResponse: "reply",
+        profileId: "user-1",
         userId: "wx-user-1",
       },
     ]);
@@ -289,7 +346,7 @@ describe("processUpdateBatch", () => {
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "#start 按计划继续执行" })],
@@ -315,11 +372,17 @@ describe("processUpdateBatch", () => {
         },
       }),
       opencode: {
-        ...TEST_SESSION,
-        agents: [
-          { id: "prometheus", mode: "primary" },
-          { id: "sisyphus", mode: "primary" },
-        ],
+        ...TEST_RUNTIME,
+        session: {
+          ...TEST_SESSION,
+          transport: {
+            ...TEST_SESSION.transport,
+            agents: [
+              { id: "prometheus", mode: "primary" },
+              { id: "sisyphus", mode: "primary" },
+            ],
+          },
+        },
       },
       response: {
         get_updates_buf: "new-buf",
@@ -329,6 +392,348 @@ describe("processUpdateBatch", () => {
 
     expect(result.batchSucceeded).toBe(true);
     expect(sentAgents).toEqual(["prometheus"]);
+  });
+
+  test("handles local slash commands without calling OpenCode", async () => {
+    const texts: string[] = [];
+    let promptCalls = 0;
+    const localCommands = {
+      bindingService: {
+        async consumeCode() {
+          return { status: "invalid" as const };
+        },
+        async generateCode() {
+          return { code: "000000", createdAt: 0, expiresAt: 1 };
+        },
+        async listBindings() {
+          return [];
+        },
+        async revoke() {
+          return false;
+        },
+      },
+      defaultDirectory: "/tmp",
+      discovery: {
+        async listAgents() {
+          return [];
+        },
+        async listModels() {
+          return [];
+        },
+        async listProjects() {
+          return [];
+        },
+        async listVariants() {
+          return [];
+        },
+        async selectAgent() {
+          return "sisyphus";
+        },
+        async selectModel() {
+          return { model: { modelID: "m", providerID: "p" } };
+        },
+        async selectProject() {
+          return "/tmp";
+        },
+        async selectVariant() {
+          return "high";
+        },
+        async isVariantCompatible() {
+          return true;
+        },
+      } as never,
+      scope: { accountId: "bot-1", profileId: "user-1" },
+      sessions: {
+        async peekBinding() {
+          return undefined;
+        },
+        async resolve() {
+          throw new Error("should not resolve for help");
+        },
+        async recover() {
+          throw new Error("should not recover");
+        },
+        async reset() {
+          throw new Error("should not reset");
+        },
+        async updatePreferences() {
+          throw new Error("should not update");
+        },
+        defaultDirectory: "/tmp",
+        scope: { accountId: "bot-1", profileId: "user-1" },
+      } as never,
+    };
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        hasWelcomedSender() {
+          return true;
+        },
+        async sendPrompt() {
+          promptCalls += 1;
+          return "should-not-send";
+        },
+        async sendTextMessage(_base, _token, _to, text) {
+          texts.push(text);
+        },
+      }),
+      localCommands,
+      opencode: TEST_RUNTIME,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "/帮助" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(promptCalls).toBe(0);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toContain("OpenCode 机器人命令");
+    expect(texts[0]).not.toContain("**");
+  });
+
+  test("auto-sends first-contact welcome once for unbound ordinary messages", async () => {
+    const texts: string[] = [];
+    const welcomed: string[] = [];
+    let promptCalls = 0;
+    const localCommands = {
+      bindingService: {
+        async consumeCode() {
+          return { status: "invalid" as const };
+        },
+        async generateCode() {
+          return { code: "000000", createdAt: 0, expiresAt: 1 };
+        },
+        async listBindings() {
+          return [];
+        },
+        async revoke() {
+          return false;
+        },
+      },
+      defaultDirectory: "/tmp",
+      discovery: {} as never,
+      scope: { accountId: "bot-1", profileId: "user-1" },
+      sessions: {
+        async peekBinding() {
+          return undefined;
+        },
+        async resolve() {
+          throw new Error("should not resolve");
+        },
+        async recover() {
+          throw new Error("should not recover");
+        },
+        async reset() {
+          throw new Error("should not reset");
+        },
+        async updatePreferences() {
+          throw new Error("should not update");
+        },
+        defaultDirectory: "/tmp",
+        scope: { accountId: "bot-1", profileId: "user-1" },
+      } as never,
+    };
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        hasWelcomedSender(senderId) {
+          return welcomed.includes(senderId);
+        },
+        markSenderWelcomed(senderId) {
+          welcomed.push(senderId);
+        },
+        async sendPrompt() {
+          promptCalls += 1;
+          return "should-not-send";
+        },
+        async sendTextMessage(_base, _token, _to, text) {
+          texts.push(text);
+        },
+      }),
+      localCommands,
+      opencode: TEST_RUNTIME,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
+      },
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(promptCalls).toBe(0);
+    expect(texts).toHaveLength(1);
+    expect(texts[0]).toContain("你好，我是 OpenCode 微信入口");
+    expect(texts[0]).toContain("/bind 123456");
+    expect(texts[0]).not.toContain("**");
+    expect(welcomed).toEqual(["wx-user-1"]);
+  });
+
+  test("replies with unbound guidance when a bound session resolver rejects the sender", async () => {
+    const texts: string[] = [];
+    let promptCalls = 0;
+    const userSessions: UserSessionResolver = {
+      async recover() {
+        throw new Error("not used");
+      },
+      async resolve(senderId) {
+        const { UserSessionNotBoundError } = await import("../opencode/user-session-manager");
+        throw new UserSessionNotBoundError(senderId);
+      },
+    };
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        async sendPrompt() {
+          promptCalls += 1;
+          return "should-not-send";
+        },
+        async sendTextMessage(_base, _token, _to, text) {
+          texts.push(text);
+        },
+      }),
+      opencode: TEST_RUNTIME,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ contextToken: "ctx-1", text: "帮我写代码" })],
+      },
+      userSessions,
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(promptCalls).toBe(0);
+    expect(texts[0]).toContain("/bind 123456");
+  });
+
+  test("uses sender-specific sessions and prompt preferences when a resolver is configured", async () => {
+    const sent: Array<{
+      readonly agent?: string;
+      readonly directory?: string;
+      readonly modelId?: string;
+      readonly sessionId: string;
+    }> = [];
+    const bindingFor = (senderId: string): BotBinding => ({
+      agent: `agent-${senderId}`,
+      bindingId: `binding-${senderId}`,
+      boundAt: 1,
+      directory: `/tmp/${senderId}`,
+      model: { modelId: `model-${senderId}`, providerId: "provider" },
+      replyStyle: senderId === "sender-a" ? "concise" : "detailed",
+      senderId,
+      sessionId: `session-${senderId}`,
+    });
+    const resolve = async (senderId: string) => {
+      const binding = bindingFor(senderId);
+      return {
+        binding,
+        session: {
+          directory: binding.directory,
+          id: binding.sessionId ?? "missing",
+          model: {
+            modelID: binding.model?.modelId ?? "missing",
+            providerID: binding.model?.providerId ?? "missing",
+          },
+          transport: TEST_SESSION.transport,
+        },
+      };
+    };
+    const userSessions: UserSessionResolver = {
+      recover(senderId) {
+        return resolve(senderId);
+      },
+      resolve,
+    };
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        async sendPrompt(session, _prompt, options) {
+          sent.push({
+            ...(options?.agent ? { agent: options.agent } : {}),
+            ...(session.directory ? { directory: session.directory } : {}),
+            ...(options?.model ? { modelId: options.model.modelID } : {}),
+            sessionId: session.id,
+          });
+          return "reply";
+        },
+      }),
+      opencode: TEST_RUNTIME,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [
+          createUserMessage({ senderId: "sender-a", text: "first" }),
+          createUserMessage({ senderId: "sender-b", text: "second" }),
+        ],
+      },
+      userSessions,
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(sent).toEqual([
+      {
+        agent: "agent-sender-a",
+        directory: "/tmp/sender-a",
+        modelId: "model-sender-a",
+        sessionId: "session-sender-a",
+      },
+      {
+        agent: "agent-sender-b",
+        directory: "/tmp/sender-b",
+        modelId: "model-sender-b",
+        sessionId: "session-sender-b",
+      },
+    ]);
+  });
+
+  test("recovers only the active sender through the shared user-session resolver", async () => {
+    const selected = bindingForPolling("sender-a", "old-session");
+    let promptCalls = 0;
+    let recoverCalls = 0;
+    let legacyRestartCalls = 0;
+    const userSessions: UserSessionResolver = {
+      async recover(senderId, observedGeneration) {
+        recoverCalls += 1;
+        expect(senderId).toBe("sender-a");
+        expect(observedGeneration).toBe(TEST_SESSION.transport.generation);
+        return resolvedForPolling(selected, "new-session");
+      },
+      async resolve() {
+        return resolvedForPolling(selected, "old-session");
+      },
+    };
+
+    const result = await processUpdateBatch({
+      account: TEST_ACCOUNT,
+      currentUpdatesBuf: "old-buf",
+      deps: createDeps({
+        async restartOpencode() {
+          legacyRestartCalls += 1;
+          return TEST_RUNTIME;
+        },
+        async sendPrompt(session) {
+          promptCalls += 1;
+          if (promptCalls === 1) throw new Error("Unable to connect");
+          return session.id;
+        },
+      }),
+      opencode: TEST_RUNTIME,
+      response: {
+        get_updates_buf: "new-buf",
+        msgs: [createUserMessage({ senderId: "sender-a", text: "recover" })],
+      },
+      userSessions,
+    });
+
+    expect(result.batchSucceeded).toBe(true);
+    expect(result.opencode.session.id).toBe("new-session");
+    expect(recoverCalls).toBe(1);
+    expect(legacyRestartCalls).toBe(0);
   });
 
   test("loads Oh My OpenAgent context for ordinary OpenCode calls", async () => {
@@ -346,8 +751,14 @@ describe("processUpdateBatch", () => {
         },
       }),
       opencode: {
-        ...TEST_SESSION,
-        agents: [{ id: "sisyphus", mode: "primary" }],
+        ...TEST_RUNTIME,
+        session: {
+          ...TEST_SESSION,
+          transport: {
+            ...TEST_SESSION.transport,
+            agents: [{ id: "sisyphus", mode: "primary" }],
+          },
+        },
       },
       response: {
         get_updates_buf: "new-buf",
@@ -376,7 +787,7 @@ describe("processUpdateBatch", () => {
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({
@@ -405,7 +816,7 @@ describe("processUpdateBatch", () => {
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "普通问题" })],
@@ -438,7 +849,7 @@ describe("processUpdateBatch", () => {
           sentTexts.push(text);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "发图" })],
@@ -469,7 +880,7 @@ describe("processUpdateBatch", () => {
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createImageMessage()],
@@ -501,7 +912,7 @@ describe("processUpdateBatch", () => {
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createImageMessage()],
@@ -527,7 +938,7 @@ describe("processUpdateBatch", () => {
           return "reply";
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "普通问题" })],
@@ -560,7 +971,7 @@ describe("processUpdateBatch", () => {
           sentTexts.push(text);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "把图发我" })],
@@ -594,7 +1005,7 @@ describe("processUpdateBatch", () => {
           sendTextMessageCalls += 1;
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
@@ -623,7 +1034,7 @@ describe("processUpdateBatch", () => {
       deps: createDeps({
         async restartOpencode() {
           restartCalls += 1;
-          return replacementSession;
+          return runtimeWithSession(replacementSession);
         },
         async sendPrompt(session) {
           promptCalls += 1;
@@ -637,7 +1048,7 @@ describe("processUpdateBatch", () => {
           sentTexts.push(text);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
@@ -649,7 +1060,7 @@ describe("processUpdateBatch", () => {
     expect(restartCalls).toBe(1);
     expect(promptCalls).toBe(2);
     expect(promptSessions).toEqual(["session-1", "session-2"]);
-    expect(result.opencode.id).toBe("session-2");
+    expect(result.opencode.session.id).toBe("session-2");
     expect(sentTexts).toEqual(["恢复后的回复"]);
   });
 
@@ -668,7 +1079,7 @@ describe("processUpdateBatch", () => {
       deps: createDeps({
         async restartOpencode() {
           restartCalls += 1;
-          return replacementSession;
+          return runtimeWithSession(replacementSession);
         },
         async sendPrompt() {
           promptCalls += 1;
@@ -681,7 +1092,7 @@ describe("processUpdateBatch", () => {
           sentTexts.push(text);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
@@ -692,7 +1103,7 @@ describe("processUpdateBatch", () => {
     expect(result.getUpdatesBuf).toBe("new-buf");
     expect(restartCalls).toBe(1);
     expect(promptCalls).toBe(2);
-    expect(result.opencode.id).toBe("session-2");
+    expect(result.opencode.session.id).toBe("session-2");
     expect(sentTexts).toEqual(["超时后完整回复"]);
   });
 
@@ -715,7 +1126,7 @@ describe("processUpdateBatch", () => {
         },
         async restartOpencode() {
           restartCalls += 1;
-          return replacementSession;
+          return runtimeWithSession(replacementSession);
         },
         async sendPrompt() {
           promptCalls += 1;
@@ -725,7 +1136,7 @@ describe("processUpdateBatch", () => {
           sentTexts.push(text);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
@@ -736,7 +1147,7 @@ describe("processUpdateBatch", () => {
     expect(result.getUpdatesBuf).toBe("new-buf");
     expect(restartCalls).toBe(1);
     expect(promptCalls).toBe(2);
-    expect(result.opencode.id).toBe("session-2");
+    expect(result.opencode.session.id).toBe("session-2");
     expect(markedProcessed).toBe(1);
     expect(sentTexts).toHaveLength(1);
     expect(sentTexts[0]).toContain("2 次处理失败");
@@ -752,7 +1163,12 @@ describe("processUpdateBatch", () => {
 
     const run = processMessage({
       ctx: {
-        account: { baseUrl: TEST_ACCOUNT.baseUrl, token: TEST_ACCOUNT.token },
+        account: {
+          accountId: TEST_ACCOUNT.accountId,
+          baseUrl: TEST_ACCOUNT.baseUrl,
+          profileId: TEST_ACCOUNT.userId ?? TEST_ACCOUNT.accountId,
+          token: TEST_ACCOUNT.token,
+        },
         cdnBaseUrl: "https://cdn.example.com",
         channelVersion: "0.4.0",
         inboxDir: "/tmp/inbox",
@@ -776,7 +1192,7 @@ describe("processUpdateBatch", () => {
         },
       }),
       message: parsed,
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
     });
 
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -793,13 +1209,13 @@ describe("processUpdateBatch", () => {
       deps: createDeps({
         async restartOpencode() {
           restartCalls += 1;
-          return TEST_SESSION;
+          return TEST_RUNTIME;
         },
         async sendPrompt() {
           throw new Error("HTTP 500: internal error");
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],
@@ -840,21 +1256,21 @@ describe("processUpdateBatch", () => {
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps,
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response,
     });
     const second = await processUpdateBatch({
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps,
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response,
     });
     const third = await processUpdateBatch({
       account: TEST_ACCOUNT,
       currentUpdatesBuf: "old-buf",
       deps,
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response,
     });
 
@@ -890,7 +1306,7 @@ describe("processUpdateBatch", () => {
           plainTexts.push(text);
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage({ contextToken: "ctx-1", text: "你好" })],

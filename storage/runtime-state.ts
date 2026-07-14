@@ -3,9 +3,11 @@ import path from "node:path";
 import {
   CONTEXT_TOKENS_FILE,
   CREDENTIALS_FILE,
+  OMO_PLAN_CONTEXT_ARCHIVE_FILE,
   OMO_PLAN_CONTEXT_FILE,
   PID_FILE,
   PROCESSED_MESSAGES_FILE,
+  STATE_DATABASE_FILE,
   SYNC_BUFFER_FILE,
 } from "../config";
 
@@ -90,7 +92,8 @@ export async function stopRunningInstance(options: {
   if (isProcessAlive(pid)) {
     try {
       process.kill(pid, "SIGKILL");
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
       // 进程恰好在两次检查之间退出
     }
   }
@@ -103,7 +106,9 @@ export interface AccountStateFiles {
   readonly contextTokensFile: string;
   readonly credentialsFile: string;
   readonly omoPlanContextFile: string;
+  readonly omoPlanContextArchiveFile?: string;
   readonly processedMessagesFile: string;
+  readonly stateDatabaseFile?: string;
   readonly syncBufferFile: string;
 }
 
@@ -111,7 +116,9 @@ export const DEFAULT_ACCOUNT_STATE_FILES: AccountStateFiles = {
   contextTokensFile: CONTEXT_TOKENS_FILE,
   credentialsFile: CREDENTIALS_FILE,
   omoPlanContextFile: OMO_PLAN_CONTEXT_FILE,
+  omoPlanContextArchiveFile: OMO_PLAN_CONTEXT_ARCHIVE_FILE,
   processedMessagesFile: PROCESSED_MESSAGES_FILE,
+  stateDatabaseFile: STATE_DATABASE_FILE,
   syncBufferFile: SYNC_BUFFER_FILE,
 };
 
@@ -124,12 +131,17 @@ export function clearAccountState(
 ): string[] {
   const removed: string[] = [];
   for (const file of [
+    files.stateDatabaseFile,
+    files.stateDatabaseFile === undefined ? undefined : `${files.stateDatabaseFile}-wal`,
+    files.stateDatabaseFile === undefined ? undefined : `${files.stateDatabaseFile}-shm`,
     files.credentialsFile,
     files.syncBufferFile,
     files.contextTokensFile,
     files.processedMessagesFile,
     files.omoPlanContextFile,
+    files.omoPlanContextArchiveFile,
   ]) {
+    if (file === undefined) continue;
     if (!fs.existsSync(file)) continue;
     fs.rmSync(file, { force: true });
     removed.push(file);

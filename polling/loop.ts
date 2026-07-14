@@ -33,13 +33,15 @@ import {
   WECHAT_REPLY_TEXT_CHUNK_CHARS,
 } from "../config";
 import type { AccountData, GetUpdatesResp } from "../types/wechat";
-import type { OpencodeSession } from "../opencode/client";
+import type { OpencodeRuntime } from "../opencode/client";
 import { restartOpencode, sendPrompt } from "../opencode/client";
 import { openReplyTextStream } from "../opencode/stream";
+import type { UserSessionResolver } from "../opencode/user-session-manager";
 import {
   processMessage,
 } from "./message-processor";
 import type {
+  LocalCommandRuntime,
   MessageProcessorDeps,
   ProcessorContext,
 } from "./message-processor-types";
@@ -53,8 +55,23 @@ import {
   hasProcessedMessage,
   markMessageProcessed,
 } from "../storage/processed-messages";
+import {
+  hasWelcomedSender,
+  markSenderWelcomed,
+} from "../storage/welcomed-senders";
+import { createPollingUserRuntime } from "./user-session-runtime";
+import {
+  classifyWechatPollError,
+  isTerminalWechatPollError,
+  TerminalWechatSessionError,
+} from "./wechat-poll-errors";
 
 export { resetMessageAttemptTracking };
+export {
+  classifyWechatPollError,
+  isTerminalWechatPollError,
+  TerminalWechatSessionError,
+} from "./wechat-poll-errors";
 
 /**
  * 依赖注入容器。测试通过 processUpdateBatch 的 deps 参数覆盖。
@@ -72,7 +89,9 @@ const DEFAULT_BATCH_DEPS: ProcessUpdateBatchDeps = {
   getCachedContextToken,
   getLatestPlanContext,
   hasProcessedMessage,
+  hasWelcomedSender,
   markMessageProcessed,
+  markSenderWelcomed,
   openReplyStream: ENABLE_STREAM_CAPTURE
     ? (session, onText) => openReplyTextStream({ onText, session })
     : null,
@@ -102,7 +121,12 @@ function describeError(err: unknown): string {
 
 function buildProcessorContext(account: AccountData): ProcessorContext {
   return {
-    account: { baseUrl: account.baseUrl, token: account.token },
+    account: {
+      accountId: account.accountId,
+      baseUrl: account.baseUrl,
+      profileId: account.userId?.trim() || account.accountId,
+      token: account.token,
+    },
     cdnBaseUrl: DEFAULT_CDN_BASE_URL,
     channelVersion: CHANNEL_VERSION,
     inboxDir: INBOX_DIR,
@@ -121,12 +145,14 @@ export async function processUpdateBatch(params: {
   account: AccountData;
   currentUpdatesBuf: string;
   deps?: ProcessUpdateBatchDeps;
-  opencode: OpencodeSession;
+  localCommands?: LocalCommandRuntime;
+  opencode: OpencodeRuntime;
   response: GetUpdatesResp;
+  userSessions?: UserSessionResolver;
 }): Promise<{
   batchSucceeded: boolean;
   getUpdatesBuf: string;
-  opencode: OpencodeSession;
+  opencode: OpencodeRuntime;
 }> {
   const {
     account,
@@ -146,8 +172,10 @@ export async function processUpdateBatch(params: {
     const result = await processMessage({
       ctx,
       deps,
+      localCommands: params.localCommands,
       message: parsed,
       opencode,
+      userSessions: params.userSessions,
     });
 
     if ("opencode" in result && result.opencode) {
@@ -183,14 +211,15 @@ export async function processUpdateBatch(params: {
 
 export async function startPolling(
   account: AccountData,
-  opencode: OpencodeSession,
+  opencode: OpencodeRuntime,
   hooks: {
-    onSessionReplaced?: (session: OpencodeSession) => void;
+    onSessionReplaced?: (runtime: OpencodeRuntime) => void;
   } = {},
 ): Promise<never> {
   const { baseUrl, token } = account;
   let getUpdatesBuf = loadSyncBuffer();
   let currentOpencode = opencode;
+  const pollingRuntime = createPollingUserRuntime(account, opencode);
 
   if (getUpdatesBuf) {
     log(`恢复上次同步状态 (${getUpdatesBuf.length} bytes)`);
@@ -209,10 +238,19 @@ export async function startPolling(
         (resp.errcode !== undefined && resp.errcode !== 0);
 
       if (isError) {
-        consecutiveFailures++;
+        const classified = classifyWechatPollError({
+          errcode: resp.errcode,
+          errmsg: resp.errmsg,
+          ret: resp.ret,
+        });
         logError(
           `getUpdates 失败: ret=${resp.ret} errcode=${resp.errcode} errmsg=${resp.errmsg ?? ""}`,
         );
+        if (isTerminalWechatPollError(classified)) {
+          // 会话/鉴权失败重试只会刷日志，直接终止让用户重新扫码
+          throw new TerminalWechatSessionError(classified);
+        }
+        consecutiveFailures++;
         await sleep(
           consecutiveFailures >= MAX_CONSECUTIVE_FAILURES
             ? BACKOFF_DELAY_MS
@@ -227,8 +265,10 @@ export async function startPolling(
       const result = await processUpdateBatch({
         account,
         currentUpdatesBuf: getUpdatesBuf,
+        localCommands: pollingRuntime.localCommands,
         opencode: currentOpencode,
         response: resp,
+        userSessions: pollingRuntime.userSessions,
       });
       getUpdatesBuf = result.getUpdatesBuf;
       if (result.opencode !== currentOpencode) {
@@ -251,6 +291,7 @@ export async function startPolling(
 
       consecutiveFailures = 0;
     } catch (err) {
+      if (!(err instanceof Error)) throw err;
       consecutiveFailures++;
       logError(`轮询异常: ${describeError(err)}`);
       await sleep(

@@ -285,7 +285,7 @@ function buildReadme(target: PackageTarget, targetKey: TargetKey): string {
     "2. 如果当前机器还没有微信凭据，程序会自动显示二维码并等待扫码。",
     `3. 如果只想重新扫码登录，可以双击 ${setupLauncher}。`,
     `4. 如果要停止正在运行的通道，可以双击 ${stopLauncher}。`,
-    `5. 推荐使用图形控制台：双击 ${target.guiLauncherName}，浏览器会自动打开，支持启动/停止/扫码登录/登出和实时日志。`,
+    `5. 推荐使用图形控制台：双击 ${target.guiLauncherName}，浏览器会自动打开，支持启动/停止/扫码登录/登出、实时日志、OpenCode Session 历史、进度和完成通知。`,
     "6. 如需自定义 agent / model / OpenCode CLI 路径，可复制 opencode-wechat.env.example 为 opencode-wechat.env 后再启动。",
     "",
     "运行前提：",

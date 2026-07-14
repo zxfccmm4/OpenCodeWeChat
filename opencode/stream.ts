@@ -187,10 +187,10 @@ export async function openReplyTextStream(params: {
   readonly session: OpencodeSession;
 }): Promise<ReplyStreamHandle> {
   const controller = new AbortController();
-  const res = await fetch(new URL("/event", params.session.serverUrl), {
+  const res = await fetch(new URL("/event", params.session.transport.serverUrl), {
     headers: {
       Accept: "text/event-stream",
-      Authorization: params.session.authHeader,
+      Authorization: params.session.transport.authHeader,
     },
     signal: controller.signal,
   });
@@ -232,12 +232,13 @@ export async function openReplyTextStream(params: {
           try {
             aggregator.handleEvent(JSON.parse(line.slice(6)));
             markActivity();
-          } catch {
-            // 跳过无法解析的事件
+          } catch (error) {
+            if (!(error instanceof SyntaxError)) throw error;
           }
         }
       }
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
       // 中止或网络断开，由调用方的 stop()/整段回退兜底
     }
   })();

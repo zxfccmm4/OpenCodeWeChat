@@ -1,16 +1,10 @@
 # OpenCodeWeChat
 
-把微信变成 OpenCode / OMO 的移动入口。
+把微信变成 **OpenCode / Oh My OpenAgent (OMO)** 的移动入口。
 
-OpenCodeWeChat 通过微信 ClawBot ilink API，把微信消息桥接到本机 `opencode serve`。你可以在微信里直接和本地 OpenCode / OMO 对话、执行 `#plan` / `#start` / `#ulw` 等工作流、发送图片和文件给 AI，也可以让 AI 把生成的 PDF、图片、视频或其他文件发回微信。
+OpenCodeWeChat 通过微信官方 **ClawBot ilink API**，在本机桥接微信消息与 `opencode serve`。你可以在微信里对话、跑 OMO 工作流、收发图片/文件/PDF，并用浏览器控制台完成扫码、启停、绑定和看日志。
 
-## 适合谁
-
-- 想在微信里随时调用本机 OpenCode / OMO。
-- 想用浏览器控制台完成扫码、启动、停止和看日志，不想一直守着终端。
-- 想把微信图片、文件交给本地 AI 处理。
-- 想让 AI 生成报告、PDF、图片等产物，并直接发回微信。
-- 想要更稳的桥接层：回复分片、消息去重、游标保护、自动重试和本地日志。
+**当前版本：** 0.5.0 · **运行时：** Bun · **许可证：** MIT
 
 ## 效果预览
 
@@ -18,54 +12,103 @@ OpenCodeWeChat 通过微信 ClawBot ilink API，把微信消息桥接到本机 `
 
 ![微信对话效果](docs/images/wechat_2.jpg)
 
-## 下载使用
+## 适合谁
 
-推荐普通用户直接下载一键包，不需要克隆源码。
+- 想在微信里随时调用本机 OpenCode / OMO
+- 不想一直守着终端，希望用本机 GUI 管理扫码、启停和日志
+- 需要把微信图片、视频、文件交给本地 AI 处理
+- 希望 AI 生成的报告 / PDF / 图片能直接发回微信
+- 需要更稳的桥接层：绑定鉴权、文本分片、消息去重、失败重试、会话过期退出
 
-发布页：[OpenCodeWeChat v0.4.0](https://github.com/zxfccmm4/OpenCodeWeChat/releases/tag/v0.4.0)
+## 功能概览
 
-| 平台 | 下载 |
+| 能力 | 说明 |
 |------|------|
-| macOS Apple Silicon | [OpenCodeWeChat-0.4.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.4.0/OpenCodeWeChat-0.4.0-macos-arm64.zip) |
-| macOS Intel | [OpenCodeWeChat-0.4.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.4.0/OpenCodeWeChat-0.4.0-macos-x64.zip) |
-| Windows x64 | [OpenCodeWeChat-0.4.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.4.0/OpenCodeWeChat-0.4.0-windows-x64.zip) |
+| 微信 ↔ 本机 AI | 长轮询 ClawBot，转发到 OpenCode / OMO，完成后回微信 |
+| 聊天绑定 | 六位一次性绑定码，未绑定用户不能调用本机 AI |
+| 斜杠命令 | `/帮助`、`/状态`、`/项目`、`/模型`、`/模式` 等 |
+| OMO 工作流 | `#plan`、`#start`、`#ulw`、`#review` 等 |
+| 双向媒体 | 微信入站下载解密；AI 出站上传图片/视频/文件 |
+| 图形控制台 | macOS 设置页风格 GUI（侧边栏、分组、浅色/深色） |
+| 稳定性 | 游标保护、毒消息跳过、OpenCode 断线重建、session timeout 终止 |
 
-SHA256 校验：
+## 工作方式
 
 ```text
-OpenCodeWeChat-0.4.0-macos-arm64.zip
-7532cd384a9365fc8b9b3de7ef257eab751a020ea420bb0824caf169b67214cb
-
-OpenCodeWeChat-0.4.0-macos-x64.zip
-8a92a39e0c27f279c933ba39b2199c2a738df6bb1a15c2b67e4e0be489c8e3c9
-
-OpenCodeWeChat-0.4.0-windows-x64.zip
-732203671b4dd794344f6bf8d318519388389c06c6d2cccd08b0e08a9daa3076
+微信客户端
+  → ClawBot
+  → ilink API（长轮询）
+  → OpenCodeWeChat
+  → opencode serve
+  → OpenCode / OMO agent
+  → 文本分片 + 媒体回传微信
 ```
 
-macOS 下载后如果提示“OpenCodeWeChat-GUI 已损坏，无法打开”，通常是系统下载隔离属性导致的。进入解压后的目录运行：
+1. `getUpdates` 长轮询拉取消息  
+2. 解析斜杠命令 / OMO 指令 / 媒体  
+3. 已绑定用户创建或恢复 OpenCode session  
+4. 等待完成后，按安全长度分片回微信；含媒体指令则上传本地文件  
+5. 不把生成中的半截内容刷到微信，只发最终结果  
+
+## 下载使用（推荐）
+
+普通用户可直接下载一键包，无需克隆源码。
+
+- **最新版本：** [v0.5.0](https://github.com/zxfccmm4/OpenCodeWeChat/releases/tag/v0.5.0)
+- **全部发布：** [Releases](https://github.com/zxfccmm4/OpenCodeWeChat/releases)
+
+| 平台 | 文件 | 大小 | SHA256 |
+|------|------|------|--------|
+| macOS Apple Silicon | [OpenCodeWeChat-0.5.0-macos-arm64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-macos-arm64.zip) | 68 MB | `44ff5a9c6fa80a0344f4b405f009de22dc19e03283c6ecbf72405cf3c1be4188` |
+| macOS Intel | [OpenCodeWeChat-0.5.0-macos-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-macos-x64.zip) | 76 MB | `89b3019d8e62b0bb3ddf80845668b4402a8fd8d01cd55b415b0b362a519baafb` |
+| Windows x64 | [OpenCodeWeChat-0.5.0-windows-x64.zip](https://github.com/zxfccmm4/OpenCodeWeChat/releases/download/v0.5.0/OpenCodeWeChat-0.5.0-windows-x64.zip) | 110 MB | `f7ba551706e66c2252aaffafd1a34a963e97558ead28ce79787bf68ce562d9b3` |
+
+校验：
+
+```bash
+# macOS / Linux
+shasum -a 256 OpenCodeWeChat-0.5.0-*.zip
+
+# Windows PowerShell
+Get-FileHash .\OpenCodeWeChat-0.5.0-windows-x64.zip -Algorithm SHA256
+```
+
+解压后：
+
+- macOS：双击 `OpenCodeWeChat GUI.command`
+- Windows：双击 `OpenCodeWeChat GUI.bat`
+
+macOS 若提示「已损坏，无法打开」：
 
 ```bash
 xattr -dr com.apple.quarantine .
 ```
 
-## 快速开始
+本地从源码重新打包：
 
-前置条件：
+```bash
+bun run package:all
+# 输出：dist/one-click/
+```
 
-- 本机已经安装并登录 OpenCode CLI，终端里能运行 `opencode`。
-- 微信账号可以使用 ClawBot。
-- 如果要使用 OMO，需要本机 OpenCode / OMO 已经配置好对应 agent。
+### 一键包流程
 
-一键包使用流程：
+**前置条件**
 
-1. 下载并解压当前平台的 zip。
-2. macOS 双击 `OpenCodeWeChat GUI.command`，Windows 双击 `OpenCodeWeChat GUI.bat`。
-3. 浏览器控制台打开后，在页面里扫码登录微信。
-4. 点击启动通道。
-5. 在微信里向 ClawBot 发送消息。
+- 本机已安装并可运行 `opencode`
+- 微信账号可使用 ClawBot
+- 使用 OMO 时，本机已配置好对应 agent
 
-GUI 默认只监听本机地址 `127.0.0.1:5179`。如果端口被占用，可以设置：
+**步骤**
+
+1. 下载并解压当前平台 zip  
+2. macOS 双击 `OpenCodeWeChat GUI.command`，Windows 双击 `OpenCodeWeChat GUI.bat`  
+3. 浏览器打开控制台后，扫码登录微信  
+4. 点击 **启动通道**  
+5. 在 **聊天绑定** 生成六位码，微信向 ClawBot 发送 `/bind 123456`  
+6. 绑定成功后直接描述任务，或发送 `/帮助`  
+
+GUI 默认只监听 `127.0.0.1:5179`。端口占用时可设置：
 
 ```bash
 OPENCODE_WECHAT_GUI_PORT=5180
@@ -73,92 +116,122 @@ OPENCODE_WECHAT_GUI_PORT=5180
 
 ## 源码运行
 
-开发者可以从源码运行：
-
 ```bash
 git clone https://github.com/zxfccmm4/OpenCodeWeChat.git
 cd OpenCodeWeChat
 bun install
 ```
 
-扫码登录：
-
 ```bash
+# 扫码登录（首次）
 bun setup.ts
-```
 
-启动通道：
-
-```bash
+# 启动通道
 bun index.ts
-```
 
-启动 GUI：
-
-```bash
+# 启动 GUI 控制台
 bun run gui
-```
 
-登出并清理本机登录态：
-
-```bash
+# 登出并清理登录态（收件箱保留）
 bun scripts/logout.ts
 ```
 
-## 启动脚本
-
-源码仓库内置了几个常用启动脚本：
+### 启动脚本
 
 | 用途 | macOS | Windows | Linux |
 |------|-------|---------|-------|
 | 菜单启动器 | `launchers/OpenCodeWeChatLauncher.command` | `launchers/OpenCodeWeChatLauncher.cmd` | `launchers/OpenCodeWeChatLauncher.sh` |
-| 直接启动通道 | `launchers/OpenCodeWeChat.command` | `launchers/OpenCodeWeChat.cmd` | - |
+| 启动通道 | `launchers/OpenCodeWeChat.command` | `launchers/OpenCodeWeChat.cmd` | — |
 | 启动 GUI | `launchers/OpenCodeWeChatGUI.command` | `launchers/OpenCodeWeChatGUI.cmd` | `launchers/OpenCodeWeChatGUI.sh` |
-| 停止通道 | `launchers/StopOpenCodeWeChat.command` | `launchers/StopOpenCodeWeChat.cmd` | - |
+| 停止通道 | `launchers/StopOpenCodeWeChat.command` | `launchers/StopOpenCodeWeChat.cmd` | — |
 
-打包后的 zip 里也会包含对应平台的启动器和二进制文件。
+## 图形控制台
 
-## 工作方式
+`bun run gui` 或一键包 GUI 启动器会打开本机控制台。
+
+**界面（macOS 设置页风格）**
+
+- 侧边栏：通用 / 聊天绑定 / Sessions / 日志  
+- 侧边栏搜索、外观（自动 / 浅色 / 深色，跟随系统）  
+- 扫码登录、启停通道、生成绑定码  
+- OpenCode Session 列表与历史、完成通知  
+- 实时读取 `channel.log`  
+
+**安全**
+
+- 仅绑定 `127.0.0.1`  
+- 管理令牌每次启动随机生成  
+- API 校验本机 Host / Origin 与管理令牌  
+
+## 聊天绑定
+
+为防止任意微信联系人调用本机 AI，普通对话与特权命令需要先绑定。
+
+1. 微信已登录，通道正在运行  
+2. GUI → **聊天绑定** → **生成绑定码**  
+3. 微信发送（六位数字，约 10 分钟有效）：
 
 ```text
-微信客户端
-  -> ClawBot
-  -> ilink API
-  -> OpenCodeWeChat
-  -> opencode serve
-  -> OpenCode / OMO agent
+/bind 123456
 ```
 
-核心流程：
+4. 绑定成功后会收到激活说明  
 
-1. 通过 `ilink/bot/getupdates` 长轮询拉取微信消息。
-2. 自动启动本机 `opencode serve`，创建 OpenCode 会话。
-3. 把微信文本、媒体文件路径和 OMO 指令转换成 OpenCode prompt。
-4. 等 OpenCode 完成后，把最终回复按微信安全长度拆分成普通文本消息发回。
-5. 如果回复里包含媒体指令，自动上传本地文件并发送给微信。
+- 生成新码会使旧码失效  
+- 控制台仅显示脱敏标识（如 `••••1234`），可解除绑定  
+- 未绑定用户发普通消息时，会收到引导，**不会**调用 OpenCode  
+- 首次联系会自动发送欢迎与命令说明（每人一次）  
 
-桥接层不会把生成中的半截内容连续刷到微信；它只发送最终文本分片和最终媒体消息。
+## 机器人命令
+
+在微信发送（中英文别名均可）。除 `/帮助`、`/bind` 外，均需先绑定。
+
+| 命令 | 别名 | 说明 |
+|------|------|------|
+| `/帮助` | `/help` | 命令说明（无需绑定） |
+| `/bind 六位码` | `/绑定` | 绑定当前聊天（无需绑定） |
+| `/状态` | `/status` | 工作区、Session、模型、模式、思考、回复 |
+| `/新建` | `/new`、`/clear` | 新任务草稿（保留偏好，清除最近 `#plan`） |
+| `/项目` | `/project` | 列出或切换工作区 |
+| `/模型` | `/model` | 列出或切换模型 |
+| `/模式` | `/mode` | 列出或切换 agent |
+| `/思考` | `/thinking` | 列出或切换思考级别 |
+| `/回复` | `/reply` | 简洁 / 标准 / 详细 |
+
+```text
+/帮助
+/bind 012345
+/状态
+/模型 openai/gpt-5
+/模式 sisyphus
+/回复 简洁
+/新建
+帮我检查这个仓库的启动脚本
+```
+
+说明：
+
+- 斜杠命令不能附带图片、语音、视频或文件  
+- 不带参数的 `/项目`、`/模型`、`/模式`、`/思考`、`/回复` 会返回列表，再用编号或名称切换  
 
 ## OMO 指令
 
-普通消息默认会尽量路由到 OMO 主 agent（优先 `omo` / `sisyphus`，按本机 OpenCode agent 列表决定）。你也可以在微信消息开头加指令：
+普通消息默认尽量路由到 OMO 主 agent（优先 `omo` / `sisyphus`）。也可在消息开头加：
 
 | 指令 | 用途 |
 |------|------|
-| `#plan` | 先规划任务，适合复杂需求开头 |
-| `#start` | 沿着最近一次 `#plan` 继续执行 |
-| `#ulw` / `#ultrawork` | 让 OMO 尽量自主推进到可验证结果 |
-| `#team` | 多成员协作、并行调查和汇总 |
-| `#hyperplan` | 更结构化的复杂任务规划 |
-| `#ulw-loop` / `#loop` | 循环推进、验证和更新状态 |
-| `#search` / `#explore` | 检索、探索、查资料 |
-| `#analyze` / `#metis` | 根因分析、证据核查 |
-| `#delegate` | 分工委派、并行处理 |
+| `#plan` | 先规划任务 |
+| `#start` | 沿最近 `#plan` 继续 |
+| `#ulw` / `#ultrawork` | 尽量自主推进到可验证结果 |
+| `#team` | 多成员协作 |
+| `#hyperplan` | 结构化复杂规划 |
+| `#ulw-loop` / `#loop` | 循环推进与验证 |
+| `#search` / `#explore` | 检索、探索 |
+| `#analyze` / `#metis` | 根因分析 |
+| `#delegate` | 分工委派 |
 | `#deep` | 深度分析 |
-| `#review` | 代码评审、风险检查 |
+| `#review` | 代码评审 |
 | `#summary` | 压缩总结 |
-
-示例：
 
 ```text
 #plan 帮我把这个发布流程拆成可执行步骤
@@ -167,23 +240,23 @@ bun scripts/logout.ts
 #ulw 修复这个 bug，验证通过后告诉我结果
 ```
 
-`#plan` 的最近结果会按微信用户缓存在本机，后续 `#start` 会自动带上这份上下文。
+`#plan` 结果按微信用户缓存在本机，后续 `#start` 会自动带上。
 
 ## 文件和媒体
 
-### 微信发给 AI
+### 微信 → AI
 
-你可以在微信里直接发送图片、视频、文件，桥接层会下载并解密到本机收件箱：
+图片、视频、文件（及未转写语音）会下载解密到：
 
 ```text
 ~/.claude/channels/wechat/inbox/
 ```
 
-OpenCode / OMO 会收到本地文件路径，可以继续读取和处理。
+OpenCode / OMO 收到本地路径后可继续处理。
 
-### AI 发回微信
+### AI → 微信
 
-如果 OpenCode / OMO 生成了本地文件，让它在最终回复里输出媒体指令：
+让模型在最终回复中输出媒体指令：
 
 ```text
 [[wechat-image:/absolute/path/result.png|可选说明]]
@@ -191,155 +264,97 @@ OpenCode / OMO 会收到本地文件路径，可以继续读取和处理。
 [[wechat-file:/absolute/path/report.pdf|可选说明]]
 ```
 
-要求：
+- 路径必须是运行本桥接的机器上的真实绝对路径  
+- 兼容 `~`、全角冒号、反引号/引号包裹  
+- 上传失败会回失败原因文本，不堵队列  
+- PDF / 报告等长任务默认等待 **300 秒**  
 
-- 路径必须是运行 OpenCodeWeChat 这台机器上的真实绝对路径。
-- `~`、全角冒号、反引号和引号包裹会做兼容处理。
-- 上传失败时会发一条失败原因文本，不会卡住消息队列。
+## 配置
 
-PDF、报告、文件交付类请求会自动使用更长的等待窗口，默认 300 秒。
-
-## 配置项
-
-常用环境变量：
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `HOME` / `USERPROFILE` | 系统用户目录 | 决定本地状态文件保存位置 |
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `HOME` / `USERPROFILE` | 用户目录 | 状态文件根目录 |
 | `OPENCODE_BIN` | `opencode` | OpenCode CLI 路径 |
-| `OPENCODE_AGENT` | 自动选择 | 指定默认 agent；`omo` / `sisyphus` 会进入 OMO 路由 |
-| `OPENCODE_PROVIDER_ID` | 空 | 显式指定 OpenCode provider，通常不需要设置 |
-| `OPENCODE_MODEL_ID` | 空 | 显式指定 OpenCode model，通常不需要设置 |
-| `OPENCODE_SERVER_USERNAME` | `opencode` | 本地 OpenCode server 用户名 |
-| `OPENCODE_SERVER_PASSWORD` | 自动生成 | 本地 OpenCode server 密码 |
-| `OPENCODE_WECHAT_GUI_PORT` | `5179` | GUI 本地端口 |
-| `OPENCODE_WECHAT_CDN_BASE_URL` | 微信默认 CDN | 微信媒体 CDN 地址 |
-| `OPENCODE_WECHAT_INBOX_DIR` | `~/.claude/channels/wechat/inbox` | 收件箱目录 |
-| `OPENCODE_WECHAT_STREAM_CAPTURE` | `1` | 是否订阅 OpenCode SSE 作为完整回复兜底 |
-| `OPENCODE_WECHAT_TYPING` | `0` | 是否开启微信“正在输入”状态 |
-| `OPENCODE_WECHAT_TYPING_MAX_MS` | `45000` | 正在输入状态最长保持时间 |
-| `OPENCODE_WECHAT_PROMPT_TIMEOUT_MS` | `60000` | 普通任务等待 OpenCode 的最长时间 |
-| `OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS` | `300000` | 文件、PDF、报告类任务的最长等待时间 |
-| `OPENCODE_WECHAT_TEXT_CHUNK_CHARS` | `500` | 微信文本分片长度 |
-| `OPENCODE_WECHAT_VERBOSE_LOGS` | `0` | 是否输出更详细的消息日志 |
+| `OPENCODE_AGENT` | 自动 | 默认 agent；`omo` / `sisyphus` 走 OMO 路由 |
+| `OPENCODE_PROVIDER_ID` | 空 | 一般不要设 |
+| `OPENCODE_MODEL_ID` | 空 | 一般不要设 |
+| `OPENCODE_SERVER_USERNAME` | `opencode` | 本地 server 用户名 |
+| `OPENCODE_SERVER_PASSWORD` | 自动生成 | 本地 server 密码 |
+| `OPENCODE_WECHAT_GUI_PORT` | `5179` | GUI 端口 |
+| `OPENCODE_WECHAT_CDN_BASE_URL` | 微信 CDN | 媒体 CDN |
+| `OPENCODE_WECHAT_INBOX_DIR` | `~/.claude/channels/wechat/inbox` | 收件箱 |
+| `OPENCODE_WECHAT_STREAM_CAPTURE` | `1` | SSE 完整性兜底 |
+| `OPENCODE_WECHAT_TYPING` | `0` | 微信「正在输入」 |
+| `OPENCODE_WECHAT_TYPING_MAX_MS` | `45000` | 输入状态最长保持 |
+| `OPENCODE_WECHAT_PROMPT_TIMEOUT_MS` | `60000` | 普通任务超时 |
+| `OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS` | `300000` | 文件/PDF/报告超时 |
+| `OPENCODE_WECHAT_TEXT_CHUNK_CHARS` | `500` | 文本分片长度 |
+| `OPENCODE_WECHAT_VERBOSE_LOGS` | `0` | 详细消息日志 |
 
-模型选择建议：
+模型建议：不要设置 `OPENCODE_PROVIDER_ID` / `OPENCODE_MODEL_ID`，交给本机 OpenCode / OMO 默认配置。若出现 `ProviderModelNotFoundError`，优先清空这两个变量。
 
-- 默认不要设置 `OPENCODE_PROVIDER_ID` 和 `OPENCODE_MODEL_ID`。
-- 让 OpenCode / OMO 使用自己已经配置好的默认模型。
-- 如果日志里出现 `ProviderModelNotFoundError`，优先删除这两个环境变量，而不是在 OpenCodeWeChat 里硬编码模型。
-
-## 本地状态和日志
-
-状态目录：
+## 本地状态
 
 ```text
 ~/.claude/channels/wechat/
 ```
 
-常见文件：
-
 | 文件 | 说明 |
 |------|------|
 | `account.json` | 微信登录凭据 |
-| `sync_buf.txt` | 微信同步游标 |
-| `context_tokens.json` | 最近可用的 `context_token` 缓存 |
-| `processed_messages.json` | 已处理消息去重记录 |
-| `omo_plan_context.json` | 每个微信用户最近一次 `#plan` 结果 |
-| `opencode-wechat.pid` | 通道进程 PID |
-| `channel.log` | 通道日志，超过 5MB 会轮转 |
-| `inbox/` | 微信发来的媒体和文件 |
-
-GUI 的日志窗口读取的就是 `channel.log`。
+| `bot_state.sqlite` | 绑定与会话偏好 |
+| `sync_buf.txt` | 同步游标 |
+| `context_tokens.json` | `context_token` 缓存 |
+| `processed_messages.json` | 消息去重 |
+| `omo_plan_context.json` | 各用户最近 `#plan` |
+| `welcomed_senders.json` | 已发首次欢迎的用户 |
+| `opencode-wechat.pid` | 通道 PID |
+| `channel.log` | 通道日志（约 5MB 轮转） |
+| `inbox/` | 入站媒体 |
 
 ## 常见问题
 
 ### macOS 提示应用已损坏
 
-这是下载隔离属性导致的概率最高。进入解压后的目录运行：
-
 ```bash
 xattr -dr com.apple.quarantine .
 ```
 
-然后重新双击 `OpenCodeWeChat GUI.command` 或 `OpenCodeWeChat-GUI`。
-
-### 启动后提示找不到 OpenCode
-
-确认终端里可以运行：
+### 找不到 OpenCode
 
 ```bash
 opencode --version
+# 若不在 PATH：
+export OPENCODE_BIN=/absolute/path/to/opencode
 ```
 
-如果你的 OpenCode 不在 `PATH` 里，设置：
+### `errcode=-14` / session timeout
+
+微信登录会话已过期。通道会终止并清理失效 `account.json`。请在 GUI **重新扫码登录**，再启动通道。
+
+### 回复被截断
+
+- 确认 `OPENCODE_WECHAT_STREAM_CAPTURE` 未设为 `0`  
+- 分片长度不要过大，默认 `500` 更稳  
+- 查看 `channel.log` 是否有超时或 Provider 错误  
+
+### PDF / 长报告超时
 
 ```bash
-OPENCODE_BIN=/absolute/path/to/opencode
+export OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS=600000
 ```
 
-### 回复只有一部分或被截断
-
-当前版本会等待 OpenCode 完成后再按普通文本分片发送。可以检查：
-
-- `OPENCODE_WECHAT_STREAM_CAPTURE` 没有被设成 `0`。
-- `OPENCODE_WECHAT_TEXT_CHUNK_CHARS` 不要设置得过大，默认 `500` 更稳。
-- GUI 日志里是否出现 OpenCode 超时、会话断开或 Provider 报错。
-
-### 一直显示正在输入
-
-默认不会开启正在输入状态。如果你设置了：
-
-```bash
-OPENCODE_WECHAT_TYPING=1
-```
-
-可以先关掉它，或缩短：
-
-```bash
-OPENCODE_WECHAT_TYPING_MAX_MS=15000
-```
-
-### PDF 或长报告任务超时
-
-文件交付类任务默认等待 300 秒。如果仍然不够，可以调大：
-
-```bash
-OPENCODE_WECHAT_LONG_PROMPT_TIMEOUT_MS=600000
-```
-
-同时要求模型必须实际生成文件，并在最终回复里输出：
+并要求模型真正生成文件后输出：
 
 ```text
 [[wechat-file:/absolute/path/report.pdf|报告]]
 ```
 
-### 出现 ProviderModelNotFoundError
+### 消息连续失败被跳过
 
-例如：
-
-```text
-ProviderModelNotFoundError
-providerID: "Steveai"
-modelID: "gpt-5.4-mini"
-```
-
-这说明环境里显式指定了 OpenCodeWeChat 要使用的 provider/model，但本机 OpenCode 没有这个模型。删除或清空：
-
-```bash
-OPENCODE_PROVIDER_ID
-OPENCODE_MODEL_ID
-```
-
-让 OpenCode / OMO 使用自己配置好的默认模型。
-
-### 某条消息连续失败后被跳过
-
-同一条消息连续失败 3 次会被跳过，并在微信里通知原因。这是为了防止一条坏消息永久堵住整个队列。修复环境问题后，重新发送那条消息即可。
+同一条消息失败 3 次会跳过并通知原因，避免堵死队列。修好环境后重新发送即可。
 
 ## 开发
-
-常用命令：
 
 ```bash
 bun test
@@ -348,37 +363,34 @@ bun run package:current
 bun run package:all
 ```
 
-打包脚本：
+打包：
 
 ```bash
 bun scripts/package-app.ts --target macos-arm64 --target macos-x64 --target windows-x64
 ```
 
-输出目录：
+输出：`dist/one-click/`
+
+### 项目结构
 
 ```text
-dist/one-click/
-```
-
-## 项目结构
-
-```text
-api/          微信 ilink、媒体上传和媒体下载
-core/         OMO 指令、文本分片、媒体指令、上下文和输入状态
-gui/          浏览器图形控制台
-login/        微信扫码登录
-opencode/     OpenCode server、session、SSE、agent 和错误处理
-polling/      微信轮询、消息处理、回复发送和重试逻辑
-scripts/      打包、启动、停止、登出脚本
-storage/      本地状态读写
+api/          微信 ilink、媒体上传/下载
+core/         斜杠命令、OMO 指令、分片、媒体指令
+gui/          浏览器控制台（设置页风格）
+login/        扫码登录
+opencode/     serve、session、SSE、agent、发现
+polling/      长轮询、消息处理、回复、重试
+storage/      凭据、绑定、状态库、日志
+scripts/      打包、登出
+launchers/    跨平台启动器
 tests/        Bun 自动化测试
-launchers/    macOS / Windows / Linux 启动器
-docs/         发布说明、部署文档和图片资源
+docs/         部署与发布说明
 ```
 
 更多文档：
 
 - [部署文档](docs/DEPLOYMENT.md)
+- [v0.5.0 发布说明](docs/RELEASE-v0.5.0.md)
 - [v0.4.0 发布说明](docs/RELEASE-v0.4.0.md)
 
 ## 许可证

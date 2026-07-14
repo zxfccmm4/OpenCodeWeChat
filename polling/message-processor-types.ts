@@ -1,12 +1,21 @@
 import { sendMediaMessage } from "../api/media";
 import type { DownloadedMedia } from "../api/media-download";
 import type { IncomingMedia } from "../types/wechat";
-import type { OpencodeSession } from "../opencode/client";
+import type { OpencodeRuntime, OpencodeSession } from "../opencode/client";
 import type { ReplyStreamHandle } from "../opencode/stream";
 import {
   cacheContextToken,
   getCachedContextToken,
 } from "../core/context-token";
+import type {
+  LocalCommand,
+  LocalCommandParseOptions,
+  LocalCommandParseResult,
+} from "../core/local-command-contract";
+import type {
+  LocalCommandHandleResult,
+  LocalCommandHandlerDeps,
+} from "../core/local-command-handler";
 import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 import type { StopTypingFn } from "../core/typing-indicator";
 import {
@@ -35,6 +44,8 @@ export type StartTypingIndicatorFn = (params: {
   readonly token: string;
 }) => Promise<StopTypingFn>;
 
+export type LocalCommandRuntime = LocalCommandHandlerDeps;
+
 export type MessageProcessorDeps = {
   readonly buildOmoPrompt: typeof buildOmoPrompt;
   readonly cacheContextToken: typeof cacheContextToken;
@@ -48,9 +59,20 @@ export type MessageProcessorDeps = {
   readonly generateClientId: typeof generateClientId;
   readonly getCachedContextToken: typeof getCachedContextToken;
   readonly getLatestPlanContext: typeof getLatestPlanContext;
+  readonly handleLocalCommand?: (params: {
+    readonly command: LocalCommand;
+    readonly deps: LocalCommandRuntime;
+    readonly senderId: string;
+  }) => Promise<LocalCommandHandleResult>;
   readonly hasProcessedMessage: typeof hasProcessedMessage;
+  readonly hasWelcomedSender?: (senderId: string) => boolean;
   readonly markMessageProcessed: typeof markMessageProcessed;
+  readonly markSenderWelcomed?: (senderId: string) => void;
   readonly openReplyStream: OpenReplyStreamFn | null;
+  readonly parseLocalCommand?: (
+    text: string,
+    options?: LocalCommandParseOptions,
+  ) => LocalCommandParseResult;
   readonly parseOmoCommand: typeof parseOmoCommand;
   readonly restartOpencode: typeof restartOpencode;
   readonly saveLatestPlanContext: typeof saveLatestPlanContext;
@@ -62,7 +84,9 @@ export type MessageProcessorDeps = {
 
 export type ProcessorContext = {
   readonly account: {
+    readonly accountId: string;
     readonly baseUrl: string;
+    readonly profileId: string;
     readonly token: string;
   };
   readonly channelVersion: string;
@@ -79,6 +103,6 @@ export type ProcessorContext = {
 };
 
 export type ProcessMessageResult =
-  | { readonly status: "processed"; readonly opencode?: OpencodeSession }
-  | { readonly status: "skipped"; readonly opencode?: OpencodeSession }
-  | { readonly status: "failed-retryable"; readonly opencode?: OpencodeSession };
+  | { readonly status: "processed"; readonly opencode?: OpencodeRuntime }
+  | { readonly status: "skipped"; readonly opencode?: OpencodeRuntime }
+  | { readonly status: "failed-retryable"; readonly opencode?: OpencodeRuntime };

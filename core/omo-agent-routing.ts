@@ -13,7 +13,7 @@ export function buildOmoSendPromptOptions(
 ): SendPromptOptions {
   const system = buildOhMyOpenAgentSystemPrompt(command);
   for (const agentName of getPreferredOmoAgents(command.mode)) {
-    const agent = findPreferredAgent(agentName, session.agents);
+    const agent = findPreferredAgent(agentName, session.transport.agents);
     if (agent) return { agent, system };
   }
   return { system };

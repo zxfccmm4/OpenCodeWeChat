@@ -3,7 +3,8 @@ import { buildOmoPrompt, parseOmoCommand } from "../core/omo-command";
 import { processUpdateBatch, resetMessageAttemptTracking } from "../polling/loop";
 import type { MessageProcessorDeps } from "../polling/message-processor-types";
 import type { AccountData, WeixinMessage } from "../types/wechat";
-import type { OpencodeSession } from "../opencode/client";
+import { OpencodeTransportManager } from "../opencode/client";
+import type { OpencodeRuntime, OpencodeSession } from "../opencode/client";
 
 type TestDeps = NonNullable<Parameters<typeof processUpdateBatch>[0]["deps"]>;
 
@@ -16,11 +17,24 @@ const TEST_ACCOUNT: AccountData = {
 };
 
 const TEST_SESSION: OpencodeSession = {
-  agents: [],
-  authHeader: "Basic test",
-  close() {},
   id: "session-1",
-  serverUrl: "http://127.0.0.1:1",
+  transport: {
+    agents: [],
+    authHeader: "Basic test",
+    generation: 0,
+    serverUrl: "http://127.0.0.1:1",
+  },
+};
+const TEST_RUNTIME: OpencodeRuntime = {
+  manager: new OpencodeTransportManager({
+    agents: [],
+    authHeader: "Basic test",
+    close() {},
+    serverUrl: "http://127.0.0.1:1",
+  }, async () => {
+    throw new Error("not used");
+  }),
+  session: TEST_SESSION,
 };
 
 function createDeps(overrides: Partial<MessageProcessorDeps> = {}): TestDeps {
@@ -103,7 +117,7 @@ describe("processUpdateBatch OpenCode stream capture", () => {
           };
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage("你现在的智能体是")],
@@ -160,7 +174,7 @@ describe("processUpdateBatch OpenCode stream capture", () => {
           };
         },
       }),
-      opencode: TEST_SESSION,
+      opencode: TEST_RUNTIME,
       response: {
         get_updates_buf: "new-buf",
         msgs: [createUserMessage("长任务")],
