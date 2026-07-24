@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="220" viewBox="0 0 1280 220" role="img" aria-labelledby="title">
+  <title id="title">OpenCodeWeChat 消息路径</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#0f1a14"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="220" rx="16" fill="url(#bg)"/>
+  <text x="40" y="42" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" letter-spacing="1.5">MESSAGE PATH</text>
+  <text x="40" y="68" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600">微信 → ClawBot → OpenCodeWeChat → 本机 OpenCode / OMO → 回微信</text>
+
+  <!-- nodes -->
+  <g font-family="ui-sans-serif, system-ui, sans-serif">
+    <rect x="40" y="100" width="180" height="72" rx="12" fill="#0f291c" stroke="#166534" stroke-width="1.5"/>
+    <text x="130" y="132" text-anchor="middle" fill="#86efac" font-size="14" font-weight="700">微信</text>
+    <text x="130" y="154" text-anchor="middle" fill="#6ee7b7" font-size="12">任务 · 命令 · 媒体</text>
+
+    <line x1="220" y1="136" x2="250" y2="136" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="250" y="100" width="180" height="72" rx="12" fill="#0f1f33" stroke="#1d4ed8" stroke-width="1.5"/>
+    <text x="340" y="132" text-anchor="middle" fill="#93c5fd" font-size="14" font-weight="700">ClawBot ilink</text>
+    <text x="340" y="154" text-anchor="middle" fill="#7dd3fc" font-size="12">官方长轮询 API</text>
+
+    <line x1="430" y1="136" x2="460" y2="136" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="460" y="100" width="220" height="72" rx="12" fill="#1a1430" stroke="#6d28d9" stroke-width="1.5"/>
+    <text x="570" y="132" text-anchor="middle" fill="#c4b5fd" font-size="14" font-weight="700">OpenCodeWeChat</text>
+    <text x="570" y="154" text-anchor="middle" fill="#ddd6fe" font-size="12">绑定 · 斜杠 · 分片 · 媒体</text>
+
+    <line x1="680" y1="136" x2="710" y2="136" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="710" y="100" width="220" height="72" rx="12" fill="#1c1917" stroke="#a8a29e" stroke-width="1.5"/>
+    <text x="820" y="132" text-anchor="middle" fill="#e7e5e4" font-size="14" font-weight="700">opencode serve</text>
+    <text x="820" y="154" text-anchor="middle" fill="#a8a29e" font-size="12">模型 · OMO · 插件</text>
+
+    <line x1="930" y1="136" x2="960" y2="136" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="960" y="100" width="260" height="72" rx="12" fill="#0f291c" stroke="#07c160" stroke-width="1.5"/>
+    <text x="1090" y="132" text-anchor="middle" fill="#86efac" font-size="14" font-weight="700">只回最终结果</text>
+    <text x="1090" y="154" text-anchor="middle" fill="#6ee7b7" font-size="12">文本分片 + 图片/视频/文件</text>
+  </g>
+</svg>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="96" viewBox="0 0 1280 96" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#1a1430"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="96" rx="14" fill="url(#bg)"/>
+  <rect x="0" y="0" width="6" height="96" rx="3" fill="#8b5cf6"/>
+  <text x="36" y="42" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" letter-spacing="2">03 · COMMANDS &amp; OMO</text>
+  <text x="36" y="70" fill="#f1f5f9" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="700">斜杠命令与 OMO 工作流</text>
+</svg>

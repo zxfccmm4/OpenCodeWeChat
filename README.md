@@ -1,17 +1,32 @@
-# OpenCodeWeChat
+<p align="center">
+  <img src="docs/images/readme/hero.svg" width="100%" alt="OpenCodeWeChat：用微信指挥本机 OpenCode，手机下任务，电脑干活，结果回微信">
+</p>
 
-**用微信 ClawBot 管理本机 OpenCode——在手机里指挥它干活。**
+<p align="center">
+  <strong>用微信 ClawBot 管理本机 OpenCode——在手机里指挥它干活。</strong><br>
+  <sub>代码、仓库、密钥留在本机 · 入口在口袋里</sub>
+</p>
 
-本地 OpenCode 很强，但人必须守在电脑前。OpenCodeWeChat 通过微信官方 **ClawBot ilink API** 把手机接到本机 `opencode serve`：
+<p align="center">
+  <a href="https://github.com/zxfccmm4/OpenCodeWeChat/releases"><img src="https://img.shields.io/badge/version-0.5.0-07c160?style=flat-square" alt="v0.5.0"></a>
+  <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f472b6?style=flat-square" alt="Bun"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-64748b?style=flat-square" alt="MIT"></a>
+  <a href="https://github.com/zxfccmm4/OpenCodeWeChat/releases"><img src="https://img.shields.io/badge/download-一键包-3b82f6?style=flat-square" alt="Releases"></a>
+</p>
 
-- 微信里下任务、切模型、跑 **Oh My OpenAgent (OMO)** 工作流  
-- **无缝使用**本机已配置的全部模型与插件  
-- 代码、仓库、密钥留在本机；入口在口袋里  
-- 浏览器控制台完成扫码、启停、绑定与看日志  
+本地 OpenCode 很强，但人必须守在电脑前。  
+**OpenCodeWeChat** 通过微信官方 **ClawBot ilink API**，把手机接到本机 `opencode serve`：
 
-**v0.5.0** · Bun · [MIT](https://opensource.org/licenses/MIT) · [Releases](https://github.com/zxfccmm4/OpenCodeWeChat/releases)
+| 你在手机上做 | 本机自动做 | 回到微信 |
+|:---|:---|:---|
+| 下任务、切模型、跑 **OMO** 工作流 | 用已配置的全部模型与插件执行 | 只回**最终结果**（可含文件/视频） |
+| `/bind` 绑定聊天 | 未绑定**不会**调用本机 AI | 绑定码约 10 分钟有效 |
+| 发图片 / PDF / 视频 | 解密到本地 inbox，交给 OpenCode | 支持 `[[wechat-file:…]]` 等回传 |
+| 浏览器控制台扫码、启停、看日志 | 通道长轮询、分片、媒体上传 | GUI 仅 `127.0.0.1` |
 
----
+<p align="center">
+  <img src="docs/images/readme/workflow.svg" width="100%" alt="消息路径：微信 → ClawBot → OpenCodeWeChat → opencode serve → 回微信">
+</p>
 
 ## 目录
 
@@ -48,6 +63,10 @@
 | ![通用](docs/images/gui_general.png) | ![绑定](docs/images/gui_binding.png) | ![Sessions](docs/images/gui_sessions.png) | ![日志](docs/images/gui_logs.png) |
 
 ---
+
+<p align="center">
+  <img src="docs/images/readme/section-start.svg" width="100%" alt="01 5 分钟上手">
+</p>
 
 ## 5 分钟上手（推荐）
 
@@ -105,6 +124,10 @@ export OPENCODE_WECHAT_GUI_PORT=5180
 ```
 
 ---
+
+<p align="center">
+  <img src="docs/images/readme/section-features.svg" width="100%" alt="02 功能一览">
+</p>
 
 ## 功能一览
 
@@ -197,6 +220,10 @@ bun run package:all    # → dist/one-click/
 - 首次联系自动发送欢迎与命令说明（每人一次）  
 
 ---
+
+<p align="center">
+  <img src="docs/images/readme/section-commands.svg" width="100%" alt="03 命令与 OMO">
+</p>
 
 ## 命令与 OMO
 

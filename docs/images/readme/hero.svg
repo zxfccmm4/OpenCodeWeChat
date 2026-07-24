@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="560" viewBox="0 0 1280 560" role="img" aria-labelledby="title desc">
+  <title id="title">OpenCodeWeChat — 用微信指挥本机 OpenCode</title>
+  <desc id="desc">手机微信经 ClawBot 接入本机 OpenCode 与 OMO，代码与密钥留在本地。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="55%" stop-color="#101a2e"/>
+      <stop offset="100%" stop-color="#0d1f18"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#162033"/>
+      <stop offset="100%" stop-color="#0f1726"/>
+    </linearGradient>
+    <linearGradient id="wx" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1aad19"/>
+      <stop offset="100%" stop-color="#07c160"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#07c160" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#07c160" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#07c160" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#1e2a3f" stroke-width="1"/>
+    </pattern>
+    <clipPath id="phoneClip">
+      <rect x="88" y="92" width="220" height="392" rx="36"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="560" fill="url(#bg)"/>
+  <rect width="1280" height="560" fill="url(#grid)" opacity="0.45"/>
+  <circle cx="210" cy="280" r="180" fill="#07c160" opacity="0.07" filter="url(#soft)"/>
+  <circle cx="980" cy="200" r="220" fill="#3b82f6" opacity="0.06" filter="url(#soft)"/>
+
+  <!-- Phone (WeChat) -->
+  <g transform="translate(0,0)">
+    <rect x="80" y="84" width="236" height="408" rx="42" fill="#0a0f18" stroke="#2a3a52" stroke-width="2"/>
+    <rect x="88" y="92" width="220" height="392" rx="36" fill="#111827"/>
+    <g clip-path="url(#phoneClip)">
+      <rect x="88" y="92" width="220" height="56" fill="#161f2e"/>
+      <text x="198" y="126" text-anchor="middle" fill="#e5e7eb" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="15" font-weight="600">ClawBot</text>
+      <!-- bubbles -->
+      <rect x="108" y="172" width="150" height="36" rx="12" fill="#1f2937"/>
+      <text x="120" y="195" fill="#9ca3af" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">/模型 openai/gpt-5</text>
+      <rect x="128" y="224" width="160" height="52" rx="12" fill="url(#wx)"/>
+      <text x="140" y="246" fill="#fff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">已切换模型</text>
+      <text x="140" y="264" fill="#e8fff2" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">openai/gpt-5 · 就绪</text>
+      <rect x="108" y="296" width="168" height="36" rx="12" fill="#1f2937"/>
+      <text x="120" y="319" fill="#d1d5db" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">#review 检查启动脚本</text>
+      <rect x="128" y="348" width="160" height="72" rx="12" fill="#14532d"/>
+      <text x="140" y="372" fill="#bbf7d0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11">✓ 3 处风险已标注</text>
+      <text x="140" y="392" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">报告已回传 PDF</text>
+      <text x="140" y="410" fill="#6ee7b7" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">[[wechat-file:…]]</text>
+    </g>
+    <rect x="168" y="468" width="60" height="5" rx="2.5" fill="#374151"/>
+  </g>
+
+  <!-- Connection bridge -->
+  <g>
+    <rect x="340" y="268" width="200" height="3" fill="url(#glow)"/>
+    <circle cx="360" cy="270" r="5" fill="#07c160"/>
+    <circle cx="440" cy="270" r="4" fill="#34d399" opacity="0.9"/>
+    <circle cx="520" cy="270" r="5" fill="#60a5fa"/>
+    <rect x="390" y="236" width="100" height="28" rx="14" fill="#0f1c14" stroke="#07c160" stroke-width="1.5"/>
+    <text x="440" y="255" text-anchor="middle" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">ilink API</text>
+    <text x="440" y="300" text-anchor="middle" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">长轮询 · 绑定 · 媒体</text>
+  </g>
+
+  <!-- Desktop terminal (OpenCode) -->
+  <g>
+    <rect x="560" y="110" width="640" height="360" rx="18" fill="url(#panel)" stroke="#2a3a52" stroke-width="1.5"/>
+    <rect x="560" y="110" width="640" height="40" rx="18" fill="#1a2538"/>
+    <rect x="560" y="132" width="640" height="18" fill="#1a2538"/>
+    <circle cx="586" cy="130" r="6" fill="#ef4444"/>
+    <circle cx="608" cy="130" r="6" fill="#f59e0b"/>
+    <circle cx="630" cy="130" r="6" fill="#22c55e"/>
+    <text x="880" y="135" text-anchor="middle" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">opencode serve · local</text>
+
+    <text x="592" y="190" fill="#64748b" font-family="ui-monospace, Menlo, monospace" font-size="13">$</text>
+    <text x="612" y="190" fill="#e2e8f0" font-family="ui-monospace, Menlo, monospace" font-size="13">OpenCodeWeChat channel online</text>
+    <text x="592" y="222" fill="#22c55e" font-family="ui-monospace, Menlo, monospace" font-size="13">●</text>
+    <text x="612" y="222" fill="#a7f3d0" font-family="ui-monospace, Menlo, monospace" font-size="13">bound user · session restored</text>
+    <text x="592" y="254" fill="#38bdf8" font-family="ui-monospace, Menlo, monospace" font-size="13">→</text>
+    <text x="612" y="254" fill="#bae6fd" font-family="ui-monospace, Menlo, monospace" font-size="13">agent: sisyphus  model: openai/gpt-5</text>
+    <text x="592" y="286" fill="#a78bfa" font-family="ui-monospace, Menlo, monospace" font-size="13">#</text>
+    <text x="612" y="286" fill="#ddd6fe" font-family="ui-monospace, Menlo, monospace" font-size="13">review launch scripts · 4 files</text>
+    <text x="592" y="318" fill="#fbbf24" font-family="ui-monospace, Menlo, monospace" font-size="13">✓</text>
+    <text x="612" y="318" fill="#fde68a" font-family="ui-monospace, Menlo, monospace" font-size="13">result chunked → WeChat (final only)</text>
+    <text x="592" y="350" fill="#34d399" font-family="ui-monospace, Menlo, monospace" font-size="13">↑</text>
+    <text x="612" y="350" fill="#bbf7d0" font-family="ui-monospace, Menlo, monospace" font-size="13">media upload report.pdf</text>
+
+    <!-- badges row -->
+    <g transform="translate(592, 390)">
+      <rect width="120" height="28" rx="8" fill="#0f291c" stroke="#166534" stroke-width="1"/>
+      <text x="60" y="19" text-anchor="middle" fill="#86efac" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">本机执行</text>
+      <rect x="132" width="120" height="28" rx="8" fill="#0f1f33" stroke="#1e40af" stroke-width="1"/>
+      <text x="192" y="19" text-anchor="middle" fill="#93c5fd" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">密钥不离机</text>
+      <rect x="264" width="120" height="28" rx="8" fill="#1a1430" stroke="#5b21b6" stroke-width="1"/>
+      <text x="324" y="19" text-anchor="middle" fill="#c4b5fd" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">OMO 工作流</text>
+      <rect x="396" width="120" height="28" rx="8" fill="#1c1917" stroke="#78716c" stroke-width="1"/>
+      <text x="456" y="19" text-anchor="middle" fill="#d6d3d1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12" font-weight="600">双向媒体</text>
+    </g>
+  </g>
+
+  <!-- Title block -->
+  <g>
+    <text x="80" y="48" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" letter-spacing="2">OFFICIAL CLAWBOT · LOCAL OPENCODE</text>
+  </g>
+  <g>
+    <text x="640" y="52" text-anchor="middle" fill="#f8fafc" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif" font-size="34" font-weight="700">OpenCodeWeChat</text>
+  </g>
+  <text x="640" y="540" text-anchor="middle" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">用微信指挥本机 OpenCode —— 手机下任务，电脑干活，结果回微信</text>
+</svg>
