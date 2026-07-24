@@ -1,5 +1,7 @@
 node_modules/
 dist/
+OpenCodeWeChat-0.5.0-*/
+*.zip
 .env
 *.log
 .DS_Store
@@ -7,3 +9,9 @@ dist/
 package-lock.json
 bun.lockb
 .mcp.json
+.codegraph/
+.omo/
+.debug-journal.md
+OpenCodeWeChatstory.html
+.codegraph/
+.codegraph
