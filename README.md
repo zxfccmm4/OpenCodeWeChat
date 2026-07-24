@@ -9,7 +9,7 @@
 - 代码、仓库、密钥留在本机；入口在口袋里  
 - 浏览器控制台完成扫码、启停、绑定与看日志  
 
-**v0.5.0** · Bun · [MIT](https://opensource.org/licenses/MIT) · [产品故事](docs/story.html) · [Releases](https://github.com/zxfccmm4/OpenCodeWeChat/releases)
+**v0.5.0** · Bun · [MIT](https://opensource.org/licenses/MIT) · [Releases](https://github.com/zxfccmm4/OpenCodeWeChat/releases)
 
 ---
 
@@ -400,7 +400,6 @@ docs/         故事页、部署与发布说明
 
 ### 更多文档
 
-- [产品故事页](docs/story.html)（单文件，内嵌截图）  
 - [部署文档](docs/DEPLOYMENT.md)  
 - [v0.5.0 发布说明](docs/RELEASE-v0.5.0.md) · [v0.4.0](docs/RELEASE-v0.4.0.md)  
 
